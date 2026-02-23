@@ -1,7 +1,7 @@
 ---
 name: gmcli
 description: >
-  Gmail CLI. Read, search, and manage email from the terminal.
+  Gmail CLI. Read, search, and manage email from the terminal. Use when user asks about emails, inbox, or sending messages.
 user-invocable: true
 disable-model-invocation: false
 ---
