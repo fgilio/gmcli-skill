@@ -1,2 +1,2 @@
-*.phar filter=lfs diff=lfs merge=lfs -text
-gmcli filter=lfs diff=lfs merge=lfs -text
+skill/*.phar filter=lfs diff=lfs merge=lfs -text
+skill/gmcli filter=lfs diff=lfs merge=lfs -text
