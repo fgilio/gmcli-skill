@@ -8,6 +8,11 @@ disable-model-invocation: false
 
 # gmcli - Gmail CLI
 
+## Execution
+
+`gmcli` is a self-contained binary available on PATH.
+Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
+
 ## Quick Reference
 
 | Command | Purpose |
