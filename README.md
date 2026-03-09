@@ -4,7 +4,7 @@ Gmail command-line interface. Self-contained binary, no PHP required.
 
 ## Install
 
-See [skill/SETUP.md](skill/SETUP.md) or run `./install`
+See [skill/SETUP.md](skill/SETUP.md) or run `./skill/install`
 
 ## Setup
 

@@ -4,7 +4,7 @@ Laravel Zero CLI for Gmail workflows.
 
 ## Built With
 
-This skill was created using [php-cli-builder](../php-cli-builder/SKILL.md).
+This skill was created using `php-cli-builder`.
 
 ## Development Setup
 
