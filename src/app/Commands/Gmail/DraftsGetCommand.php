@@ -32,7 +32,7 @@ class DraftsGetCommand extends BaseGmailCommand
                 return $this->jsonError('Missing draft ID.');
             }
             $this->error('Missing draft ID.');
-            $this->line('Usage: gmcli <email> drafts get <draftId> [--download]');
+            $this->line('Usage: gmcli gmail:drafts:get --draft-id=<draft-id> [--download]');
 
             $analytics->track('gmail:drafts:get', self::FAILURE, ['found' => false], $startTime);
 

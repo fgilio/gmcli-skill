@@ -26,7 +26,7 @@ class CredentialsCommand extends Command
         if (empty($file)) {
             $this->error('Missing credentials file path.');
             $this->line('');
-            $this->line('Usage: gmcli accounts credentials <file.json>');
+            $this->line('Usage: gmcli accounts:credentials <file.json>');
 
             $analytics->track('accounts:credentials', self::FAILURE, ['success' => false], $startTime);
 

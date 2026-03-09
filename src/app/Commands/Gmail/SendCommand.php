@@ -41,7 +41,7 @@ class SendCommand extends BaseGmailCommand
                 return $this->jsonError('Missing required options: --to, --subject, --body');
             }
             $this->error('Missing required options.');
-            $this->line('Usage: gmcli <email> send --to <emails> --subject <s> --body <b>');
+            $this->line('Usage: gmcli gmail:send --to <emails> --subject <s> --body <b>');
 
             $analytics->track('gmail:send', self::FAILURE, ['success' => false], $startTime);
 

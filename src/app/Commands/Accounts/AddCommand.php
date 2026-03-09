@@ -31,7 +31,7 @@ class AddCommand extends Command
         if (empty($email)) {
             $this->error('Missing email address.');
             $this->line('');
-            $this->line('Usage: gmcli accounts add <email> [--manual]');
+            $this->line('Usage: gmcli accounts:add <email> [--manual]');
 
             $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
 
@@ -40,7 +40,7 @@ class AddCommand extends Command
 
         if (! $env->hasCredentials()) {
             $this->error('No credentials configured.');
-            $this->line('Run: gmcli accounts credentials <file.json> first.');
+            $this->line('Run: gmcli accounts:credentials <file.json> first.');
 
             $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
 
@@ -50,7 +50,7 @@ class AddCommand extends Command
         if ($env->hasAccount()) {
             $existingEmail = $env->getEmail();
             $this->error("Account already configured: {$existingEmail}");
-            $this->line('Remove it first: gmcli accounts remove '.$existingEmail);
+            $this->line('Remove it first: gmcli accounts:remove '.$existingEmail);
 
             $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
 

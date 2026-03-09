@@ -27,7 +27,7 @@ class DraftsDeleteCommand extends BaseGmailCommand
                 return $this->jsonError('Missing draft ID.');
             }
             $this->error('Missing draft ID.');
-            $this->line('Usage: gmcli <email> drafts delete <draftId>');
+            $this->line('Usage: gmcli gmail:drafts:delete --draft-id=<draft-id>');
 
             $analytics->track('gmail:drafts:delete', self::FAILURE, ['success' => false], $startTime);
 

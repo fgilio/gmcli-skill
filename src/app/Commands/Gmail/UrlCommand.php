@@ -29,7 +29,7 @@ class UrlCommand extends BaseGmailCommand
                 return $this->jsonError('Missing thread IDs.');
             }
             $this->error('Missing thread IDs.');
-            $this->line('Usage: gmcli <email> url <threadIds...>');
+            $this->line('Usage: gmcli gmail:url --thread-ids=<thread-id> [--thread-ids=<thread-id>...]');
 
             $analytics->track('gmail:url', self::FAILURE, ['count' => 0], $startTime);
 

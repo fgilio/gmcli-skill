@@ -32,7 +32,7 @@ class LabelsModifyCommand extends BaseGmailCommand
                 return $this->jsonError('Missing thread IDs.');
             }
             $this->error('Missing thread IDs.');
-            $this->line('Usage: gmcli <email> labels <threadIds...> [--add L] [--remove L]');
+            $this->line('Usage: gmcli gmail:labels:modify --thread-ids=<thread-id> [--thread-ids=<thread-id>...] [--add=<label>] [--remove=<label>]');
 
             $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
 
@@ -46,7 +46,7 @@ class LabelsModifyCommand extends BaseGmailCommand
                 return $this->jsonError('No labels to add or remove.');
             }
             $this->error('No labels to add or remove.');
-            $this->line('Usage: gmcli <email> labels <threadIds...> [--add L] [--remove L]');
+            $this->line('Usage: gmcli gmail:labels:modify --thread-ids=<thread-id> [--thread-ids=<thread-id>...] [--add=<label>] [--remove=<label>]');
 
             $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
 

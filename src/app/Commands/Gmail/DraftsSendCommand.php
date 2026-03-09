@@ -27,7 +27,7 @@ class DraftsSendCommand extends BaseGmailCommand
                 return $this->jsonError('Missing draft ID.');
             }
             $this->error('Missing draft ID.');
-            $this->line('Usage: gmcli <email> drafts send <draftId>');
+            $this->line('Usage: gmcli gmail:drafts:send --draft-id=<draft-id>');
 
             $analytics->track('gmail:drafts:send', self::FAILURE, ['success' => false], $startTime);
 

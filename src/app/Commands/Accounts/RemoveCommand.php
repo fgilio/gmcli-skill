@@ -23,7 +23,7 @@ class RemoveCommand extends Command
         if (empty($email)) {
             $this->error('Missing email address.');
             $this->line('');
-            $this->line('Usage: gmcli accounts remove <email>');
+            $this->line('Usage: gmcli accounts:remove <email>');
 
             $analytics->track('accounts:remove', self::FAILURE, ['success' => false], $startTime);
 

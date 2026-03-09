@@ -33,7 +33,7 @@ class ListCommand extends Command
                 return $this->outputJson([]);
             }
             $this->warn('No credentials configured.');
-            $this->line('Run: gmcli accounts credentials <file.json>');
+            $this->line('Run: gmcli accounts:credentials <file.json>');
 
             $analytics->track('accounts:list', self::SUCCESS, ['count' => 0], $startTime);
 
@@ -47,7 +47,7 @@ class ListCommand extends Command
                 return $this->outputJson([]);
             }
             $this->warn('No account configured.');
-            $this->line('Run: gmcli accounts add <email>');
+            $this->line('Run: gmcli accounts:add <email>');
 
             $analytics->track('accounts:list', self::SUCCESS, ['count' => 0], $startTime);
 

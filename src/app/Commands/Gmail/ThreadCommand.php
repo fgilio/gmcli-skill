@@ -35,7 +35,7 @@ class ThreadCommand extends BaseGmailCommand
                 return $this->jsonError('Missing thread ID.');
             }
             $this->error('Missing thread ID.');
-            $this->line('Usage: gmcli <email> thread <threadId> [--download]');
+            $this->line('Usage: gmcli gmail:thread --thread-id=<thread-id> [--download]');
 
             $analytics->track('gmail:thread', self::FAILURE, ['found' => false], $startTime);
 

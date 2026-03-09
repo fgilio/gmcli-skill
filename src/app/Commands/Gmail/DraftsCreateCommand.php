@@ -42,7 +42,7 @@ class DraftsCreateCommand extends BaseGmailCommand
                 return $this->jsonError('Missing required options: --to, --subject, --body');
             }
             $this->error('Missing required options.');
-            $this->line('Usage: gmcli <email> drafts create --to <emails> --subject <s> --body <b>');
+            $this->line('Usage: gmcli gmail:drafts:create --to <emails> --subject <s> --body <b>');
 
             $analytics->track('gmail:drafts:create', self::FAILURE, ['success' => false], $startTime);
 
