@@ -52,7 +52,7 @@ class OAuthService
         $onBrowserOpen($authUrl);
 
         $code = $this->waitForCallback($server);
-        socket_close($server);
+        fclose($server);
 
         return $this->exchangeCode($code, $redirectUri);
     }
@@ -161,19 +161,25 @@ class OAuthService
      */
     private function startCallbackServer()
     {
-        $server = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $errorCode = 0;
+        $errorMessage = '';
+        $context = stream_context_create([
+            'socket' => [
+                'so_reuseport' => true,
+                'backlog' => 1,
+            ],
+        ]);
+
+        $server = @stream_socket_server(
+            'tcp://127.0.0.1:0',
+            $errorCode,
+            $errorMessage,
+            STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+            $context
+        );
+
         if ($server === false) {
-            throw new RuntimeException('Failed to create socket: '.socket_strerror(socket_last_error()));
-        }
-
-        socket_set_option($server, SOL_SOCKET, SO_REUSEADDR, 1);
-
-        if (! socket_bind($server, '127.0.0.1', 0)) {
-            throw new RuntimeException('Failed to bind socket: '.socket_strerror(socket_last_error($server)));
-        }
-
-        if (! socket_listen($server, 1)) {
-            throw new RuntimeException('Failed to listen on socket: '.socket_strerror(socket_last_error($server)));
+            throw new RuntimeException("Failed to start callback server: {$errorMessage}");
         }
 
         return $server;
@@ -186,7 +192,17 @@ class OAuthService
      */
     private function getServerPort($server): int
     {
-        socket_getsockname($server, $addr, $port);
+        $name = stream_socket_get_name($server, false);
+        if ($name === false) {
+            throw new RuntimeException('Failed to determine callback server port');
+        }
+
+        $separator = strrpos($name, ':');
+        if ($separator === false) {
+            throw new RuntimeException('Failed to parse callback server port');
+        }
+
+        $port = (int) substr($name, $separator + 1);
 
         return $port;
     }
@@ -200,13 +216,13 @@ class OAuthService
      */
     private function waitForCallback($server): string
     {
-        socket_set_nonblock($server);
+        stream_set_blocking($server, false);
 
         $start = time();
         $client = false;
 
         while (time() - $start < $this->timeout) {
-            $client = @socket_accept($server);
+            $client = @stream_socket_accept($server, 0);
             if ($client !== false) {
                 break;
             }
@@ -217,15 +233,15 @@ class OAuthService
             throw new RuntimeException("OAuth callback timeout after {$this->timeout} seconds");
         }
 
-        $request = socket_read($client, 4096);
+        $request = stream_get_contents($client, 4096);
 
         // Extract code from GET request
         $code = $this->extractCodeFromHttpRequest($request);
 
         // Send success response
         $response = $this->buildSuccessResponse();
-        socket_write($client, $response);
-        socket_close($client);
+        fwrite($client, $response);
+        fclose($client);
 
         return $code;
     }
