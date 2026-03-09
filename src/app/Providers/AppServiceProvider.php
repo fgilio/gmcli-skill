@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\GmailClientFactory;
 use App\Services\GmcliEnv;
 use App\Services\GmcliPaths;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(GmcliPaths::class);
         $this->app->singleton(GmcliEnv::class);
+        $this->app->singleton(GmailClientFactory::class);
 
         if (Phar::running() || getenv('SKILL_PRODUCTION')) {
             $this->hideDevCommands();

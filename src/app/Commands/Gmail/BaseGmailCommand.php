@@ -3,6 +3,7 @@
 namespace App\Commands\Gmail;
 
 use App\Services\GmailClient;
+use App\Services\GmailClientFactory;
 use App\Services\GmailLogger;
 use App\Services\GmcliEnv;
 use LaravelZero\Framework\Commands\Command;
@@ -99,12 +100,12 @@ abstract class BaseGmailCommand extends Command
             return false;
         }
 
-        $this->gmail = new GmailClient(
+        $this->gmail = app(GmailClientFactory::class)->make(
             $this->env->get('GOOGLE_CLIENT_ID'),
             $this->env->get('GOOGLE_CLIENT_SECRET'),
-            $this->env->get('GMAIL_REFRESH_TOKEN')
+            $this->env->get('GMAIL_REFRESH_TOKEN'),
+            $this->logger
         );
-        $this->gmail->setLogger($this->logger);
 
         // Check for permission warnings
         $warning = $this->env->getPermissionWarning();
@@ -142,5 +143,43 @@ abstract class BaseGmailCommand extends Command
         fwrite(STDERR, json_encode(['error' => $message])."\n");
 
         return self::FAILURE;
+    }
+
+    protected function normalizeScopeError(\RuntimeException $exception): \RuntimeException
+    {
+        $message = $exception->getMessage();
+        $normalized = strtolower($message);
+
+        if (
+            str_contains($normalized, 'insufficient authentication scopes')
+            || str_contains($normalized, 'insufficientpermissions')
+            || str_contains($normalized, 'insufficient permissions')
+        ) {
+            return new \RuntimeException(
+                "Filter management requires renewed Gmail consent.\n"
+                .'Run: gmcli accounts:remove '.$this->account."\n"
+                .'Then: gmcli accounts:add '.$this->account
+            );
+        }
+
+        return $exception;
+    }
+
+    protected function renderRuntimeException(\RuntimeException $exception): void
+    {
+        $lines = preg_split('/\r?\n/', $exception->getMessage()) ?: [];
+        $headline = array_shift($lines);
+
+        if ($headline !== null && $headline !== '') {
+            $this->error($headline);
+        }
+
+        foreach ($lines as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            $this->line($line);
+        }
     }
 }

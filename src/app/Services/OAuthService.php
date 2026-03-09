@@ -17,7 +17,10 @@ class OAuthService
 
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
-    private const SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
+    private const SCOPES = [
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/gmail.settings.basic',
+    ];
 
     private string $clientId;
 
@@ -83,7 +86,7 @@ class OAuthService
             'client_id' => $this->clientId,
             'redirect_uri' => $redirectUri,
             'response_type' => 'code',
-            'scope' => self::SCOPE,
+            'scope' => implode(' ', self::SCOPES),
             'access_type' => 'offline',
             'prompt' => 'consent',
         ];

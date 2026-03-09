@@ -86,7 +86,8 @@ describe('auth URL building', function () {
         expect($url)->toContain('accounts.google.com/o/oauth2');
         expect($url)->toContain('client_id=my_client_id');
         expect($url)->toContain('redirect_uri='.urlencode('http://127.0.0.1:8080'));
-        expect($url)->toContain('scope='.urlencode('https://www.googleapis.com/auth/gmail.modify'));
+        expect($url)->toContain(urlencode('https://www.googleapis.com/auth/gmail.modify'));
+        expect($url)->toContain(urlencode('https://www.googleapis.com/auth/gmail.settings.basic'));
         expect($url)->toContain('access_type=offline');
         expect($url)->toContain('prompt=consent');
     });
