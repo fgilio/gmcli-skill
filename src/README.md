@@ -2,14 +2,10 @@
 
 Laravel Zero CLI for Gmail workflows.
 
-## Built With
-
-This skill was created using `php-cli-builder`.
-
 ## Development Setup
 
 ```bash
-cd ~/.claude/skills/gmcli/src
+cd $AGENT_HOME/skills/gmcli/src
 composer install
 ./gmcli --help
 ```
@@ -42,13 +38,13 @@ src/
 
 First-time setup (builds PHP + micro.sfx):
 ```bash
-php-cli-builder-spc-setup --doctor
-php-cli-builder-spc-build
+php-cli-skill-runtime-setup --doctor
+php-cli-skill-runtime-build
 ```
 
 Build and install to skill root:
 ```bash
-./gmcli build              # builds + copies to ../gmcli
+./gmcli build              # builds + copies to ../skill/gmcli
 ./gmcli build --no-install # only builds to builds/gmcli
 ```
 

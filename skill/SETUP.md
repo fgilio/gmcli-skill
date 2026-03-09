@@ -8,7 +8,7 @@
 
 Or manually:
 ```bash
-ln -sf ~/.claude/skills/gmcli/gmcli ~/.local/bin/gmcli
+ln -sf $AGENT_HOME/skills/gmcli/gmcli ~/.local/bin/gmcli
 ```
 
 ## Verify
