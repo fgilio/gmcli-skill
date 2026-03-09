@@ -1,9 +1,9 @@
 <?php
 
-use App\Services\GmailClient;
-use App\Services\GmailClientFactory;
 use App\Services\GmcliEnv;
 use App\Services\GmcliPaths;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     $this->tempDir = sys_get_temp_dir().'/gmcli-filters-test-'.uniqid();
@@ -20,81 +20,7 @@ beforeEach(function () {
     app()->instance(GmcliPaths::class, $paths);
     app()->instance(GmcliEnv::class, $env);
 
-    $this->fakeClient = new class extends GmailClient
-    {
-        public array $calls = [];
-
-        private array $responses = [
-            'GET' => [],
-            'POST' => [],
-            'DELETE' => [],
-        ];
-
-        private array $exceptions = [
-            'GET' => [],
-            'POST' => [],
-            'DELETE' => [],
-        ];
-
-        public function __construct()
-        {
-            parent::__construct('client-id', 'secret-key', 'refresh-token');
-        }
-
-        public function queueResponse(string $method, string $endpoint, array $response): void
-        {
-            $this->responses[$method][$endpoint][] = $response;
-        }
-
-        public function queueException(string $method, string $endpoint, string $message): void
-        {
-            $this->exceptions[$method][$endpoint][] = new RuntimeException($message);
-        }
-
-        public function get(string $endpoint, array $params = []): array
-        {
-            $this->calls[] = ['method' => 'GET', 'endpoint' => $endpoint, 'params' => $params];
-
-            return $this->next('GET', $endpoint);
-        }
-
-        public function post(string $endpoint, array $data = [], array $params = []): array
-        {
-            $this->calls[] = ['method' => 'POST', 'endpoint' => $endpoint, 'data' => $data, 'params' => $params];
-
-            return $this->next('POST', $endpoint);
-        }
-
-        public function delete(string $endpoint, array $params = []): array
-        {
-            $this->calls[] = ['method' => 'DELETE', 'endpoint' => $endpoint, 'params' => $params];
-
-            return $this->next('DELETE', $endpoint);
-        }
-
-        private function next(string $method, string $endpoint): array
-        {
-            if (! empty($this->exceptions[$method][$endpoint])) {
-                throw array_shift($this->exceptions[$method][$endpoint]);
-            }
-
-            if (! empty($this->responses[$method][$endpoint])) {
-                return array_shift($this->responses[$method][$endpoint]);
-            }
-
-            return [];
-        }
-    };
-
-    app()->instance(GmailClientFactory::class, new class($this->fakeClient) extends GmailClientFactory
-    {
-        public function __construct(private GmailClient $client) {}
-
-        public function make(string $clientId, string $clientSecret, string $refreshToken, ?\App\Services\GmailLogger $logger = null): GmailClient
-        {
-            return $this->client;
-        }
-    });
+    Http::preventStrayRequests();
 });
 
 afterEach(function () {
@@ -112,20 +38,32 @@ afterEach(function () {
     }
 });
 
+function fakeGoogleHttp(array $responses = []): void
+{
+    Http::fake(array_merge([
+        'https://oauth2.googleapis.com/token' => Http::response([
+            'access_token' => 'access-token',
+            'expires_in' => 3600,
+        ], 200),
+    ], $responses));
+}
+
 it('lists filters in text output', function () {
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', [
-        'labels' => [
-            ['id' => 'Label_1', 'name' => 'Infra'],
-        ],
-    ]);
-    $this->fakeClient->queueResponse('GET', '/users/me/settings/filters', [
-        'filter' => [
-            [
-                'id' => 'filter-1',
-                'criteria' => ['from' => 'alert@ohdear.app'],
-                'action' => ['addLabelIds' => ['Label_1'], 'removeLabelIds' => ['INBOX']],
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/labels' => Http::response([
+            'labels' => [
+                ['id' => 'Label_1', 'name' => 'Infra'],
             ],
-        ],
+        ], 200),
+        'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters' => Http::response([
+            'filter' => [
+                [
+                    'id' => 'filter-1',
+                    'criteria' => ['from' => 'alert@ohdear.app'],
+                    'action' => ['addLabelIds' => ['Label_1'], 'removeLabelIds' => ['INBOX']],
+                ],
+            ],
+        ], 200),
     ]);
 
     $this->artisan('gmail:filters:list')
@@ -134,11 +72,13 @@ it('lists filters in text output', function () {
 });
 
 it('lists filters in json output', function () {
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', ['labels' => []]);
-    $this->fakeClient->queueResponse('GET', '/users/me/settings/filters', [
-        'filter' => [
-            ['id' => 'filter-1', 'criteria' => ['from' => 'nightwatch@laravel.com'], 'action' => []],
-        ],
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/labels' => Http::response(['labels' => []], 200),
+        'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters' => Http::response([
+            'filter' => [
+                ['id' => 'filter-1', 'criteria' => ['from' => 'nightwatch@laravel.com'], 'action' => []],
+            ],
+        ], 200),
     ]);
 
     $this->artisan('gmail:filters:list', ['--json' => true])
@@ -147,20 +87,23 @@ it('lists filters in json output', function () {
 });
 
 it('creates a filter with convenience actions', function () {
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', [
-        'labels' => [
-            ['id' => 'Label_1', 'name' => 'Infra'],
-        ],
-    ]);
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', [
-        'labels' => [
-            ['id' => 'Label_1', 'name' => 'Infra'],
-        ],
-    ]);
-    $this->fakeClient->queueResponse('POST', '/users/me/settings/filters', [
-        'id' => 'filter-1',
-        'criteria' => ['from' => 'alert@ohdear.app'],
-        'action' => ['addLabelIds' => ['Label_1'], 'removeLabelIds' => ['INBOX', 'UNREAD']],
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/labels' => Http::sequence()
+            ->push([
+                'labels' => [
+                    ['id' => 'Label_1', 'name' => 'Infra'],
+                ],
+            ], 200)
+            ->push([
+                'labels' => [
+                    ['id' => 'Label_1', 'name' => 'Infra'],
+                ],
+            ], 200),
+        'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters' => Http::response([
+            'id' => 'filter-1',
+            'criteria' => ['from' => 'alert@ohdear.app'],
+            'action' => ['addLabelIds' => ['Label_1'], 'removeLabelIds' => ['INBOX', 'UNREAD']],
+        ], 200),
     ]);
 
     $this->artisan('gmail:filters:create', [
@@ -172,42 +115,70 @@ it('creates a filter with convenience actions', function () {
         ->expectsOutputToContain('Filter created: filter-1')
         ->assertSuccessful();
 
-    $createCall = collect($this->fakeClient->calls)
-        ->first(fn (array $call) => $call['method'] === 'POST' && $call['endpoint'] === '/users/me/settings/filters');
-
-    expect($createCall['data'])->toBe([
-        'criteria' => ['from' => 'alert@ohdear.app'],
-        'action' => [
-            'addLabelIds' => ['Label_1'],
-            'removeLabelIds' => ['INBOX', 'UNREAD'],
-        ],
-    ]);
+    Http::assertSent(function (Request $request) {
+        return $request->method() === 'POST'
+            && $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters'
+            && $request->data() === [
+                'criteria' => ['from' => 'alert@ohdear.app'],
+                'action' => [
+                    'addLabelIds' => ['Label_1'],
+                    'removeLabelIds' => ['INBOX', 'UNREAD'],
+                ],
+            ];
+    });
 });
 
 it('auto-creates missing add labels', function () {
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', ['labels' => []]);
-    $this->fakeClient->queueResponse('POST', '/users/me/labels', [
-        'id' => 'Label_99',
-        'name' => 'Infra',
-    ]);
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', [
-        'labels' => [
-            ['id' => 'Label_99', 'name' => 'Infra'],
-        ],
-    ]);
-    $this->fakeClient->queueResponse('POST', '/users/me/settings/filters', [
-        'id' => 'filter-1',
-    ]);
+    $labelsGetRequestCount = 0;
+
+    Http::fake(function (Request $request) use (&$labelsGetRequestCount) {
+        if ($request->url() === 'https://oauth2.googleapis.com/token') {
+            return Http::response([
+                'access_token' => 'access-token',
+                'expires_in' => 3600,
+            ], 200);
+        }
+
+        if ($request->method() === 'GET' && $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/labels') {
+            $labelsGetRequestCount++;
+
+            if ($labelsGetRequestCount === 1) {
+                return Http::response(['labels' => []], 200);
+            }
+
+            return Http::response([
+                'labels' => [
+                    ['id' => 'Label_99', 'name' => 'Infra'],
+                ],
+            ], 200);
+        }
+
+        if ($request->method() === 'POST' && $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/labels') {
+            return Http::response([
+                'id' => 'Label_99',
+                'name' => 'Infra',
+            ], 200);
+        }
+
+        if ($request->method() === 'POST' && $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters') {
+            return Http::response([
+                'id' => 'filter-1',
+            ], 200);
+        }
+
+        return Http::response([], 500);
+    });
 
     $this->artisan('gmail:filters:create', [
         '--from' => 'no-reply@laravel.com',
         '--add-label' => ['Infra'],
     ])->assertSuccessful();
 
-    $createLabelCall = collect($this->fakeClient->calls)
-        ->first(fn (array $call) => $call['method'] === 'POST' && $call['endpoint'] === '/users/me/labels');
-
-    expect($createLabelCall['data']['name'])->toBe('Infra');
+    Http::assertSent(function (Request $request) {
+        return $request->method() === 'POST'
+            && $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/labels'
+            && $request->data()['name'] === 'Infra';
+    });
 });
 
 it('fails when no criteria are provided', function () {
@@ -227,15 +198,18 @@ it('fails when no action is provided', function () {
 });
 
 it('fails when remove labels cannot be resolved', function () {
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', [
-        'labels' => [
-            ['id' => 'Label_1', 'name' => 'Infra'],
-        ],
-    ]);
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', [
-        'labels' => [
-            ['id' => 'Label_1', 'name' => 'Infra'],
-        ],
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/labels' => Http::sequence()
+            ->push([
+                'labels' => [
+                    ['id' => 'Label_1', 'name' => 'Infra'],
+                ],
+            ], 200)
+            ->push([
+                'labels' => [
+                    ['id' => 'Label_1', 'name' => 'Infra'],
+                ],
+            ], 200),
     ]);
 
     $this->artisan('gmail:filters:create', [
@@ -244,12 +218,21 @@ it('fails when remove labels cannot be resolved', function () {
     ])
         ->expectsOutputToContain('Unable to find label(s) to remove: Missing')
         ->assertFailed();
+
+    Http::assertNotSent(fn (Request $request) => $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters');
 });
 
 it('shows actionable reauth guidance for insufficient scope on create', function () {
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', ['labels' => []]);
-    $this->fakeClient->queueResponse('GET', '/users/me/labels', ['labels' => []]);
-    $this->fakeClient->queueException('POST', '/users/me/settings/filters', 'Gmail API error: Request had insufficient authentication scopes.');
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/labels' => Http::sequence()
+            ->push(['labels' => []], 200)
+            ->push(['labels' => []], 200),
+        'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters' => Http::response([
+            'error' => [
+                'message' => 'Request had insufficient authentication scopes.',
+            ],
+        ], 403),
+    ]);
 
     $this->artisan('gmail:filters:create', [
         '--from' => 'alert@ohdear.app',
@@ -262,7 +245,9 @@ it('shows actionable reauth guidance for insufficient scope on create', function
 });
 
 it('deletes a filter', function () {
-    $this->fakeClient->queueResponse('DELETE', '/users/me/settings/filters/filter-1', []);
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters/filter-1' => Http::response([], 200),
+    ]);
 
     $this->artisan('gmail:filters:delete', [
         '--filter-id' => 'filter-1',
@@ -272,7 +257,13 @@ it('deletes a filter', function () {
 });
 
 it('shows actionable reauth guidance for insufficient scope on delete', function () {
-    $this->fakeClient->queueException('DELETE', '/users/me/settings/filters/filter-1', 'Gmail API error: Request had insufficient authentication scopes.');
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/settings/filters/filter-1' => Http::response([
+            'error' => [
+                'message' => 'Request had insufficient authentication scopes.',
+            ],
+        ], 403),
+    ]);
 
     $this->artisan('gmail:filters:delete', [
         '--filter-id' => 'filter-1',
@@ -282,7 +273,9 @@ it('shows actionable reauth guidance for insufficient scope on delete', function
 });
 
 it('uses shared delete support for draft deletion', function () {
-    $this->fakeClient->queueResponse('DELETE', '/users/me/drafts/draft-1', []);
+    fakeGoogleHttp([
+        'https://gmail.googleapis.com/gmail/v1/users/me/drafts/draft-1' => Http::response([], 200),
+    ]);
 
     $this->artisan('gmail:drafts:delete', [
         '--draft-id' => 'draft-1',
@@ -290,9 +283,8 @@ it('uses shared delete support for draft deletion', function () {
         ->expectsOutputToContain('Draft deleted: draft-1')
         ->assertSuccessful();
 
-    expect($this->fakeClient->calls)->toContain([
-        'method' => 'DELETE',
-        'endpoint' => '/users/me/drafts/draft-1',
-        'params' => [],
-    ]);
+    Http::assertSent(function (Request $request) {
+        return $request->method() === 'DELETE'
+            && $request->url() === 'https://gmail.googleapis.com/gmail/v1/users/me/drafts/draft-1';
+    });
 });
