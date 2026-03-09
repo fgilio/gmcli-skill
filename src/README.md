@@ -23,12 +23,13 @@ src/
 │   │   ├── DefaultCommand.php   # Main dispatcher
 │   │   ├── BuildCommand.php     # Build binary
 │   │   ├── Accounts/            # accounts credentials|list|add|remove
-│   │   └── Gmail/               # search, thread, labels, drafts, send, url
+│   │   └── Gmail/               # search, thread, labels, filters, drafts, send, url
 │   └── Services/           # Core services
 │       ├── GmcliPaths.php       # ~/.gmcli/ directory management
 │       ├── GmcliEnv.php         # .env file handling
 │       ├── OAuthService.php     # Google OAuth 2.0
 │       ├── GmailClient.php      # Gmail API client
+│       ├── GmailClientFactory.php # Gmail client construction seam
 │       ├── MimeHelper.php       # MIME parsing
 │       ├── LabelResolver.php    # Label name → ID
 │       └── MessageBuilder.php   # RFC2822 message building
@@ -58,10 +59,17 @@ The build:
 
 ## OAuth Scope
 
-Uses `https://www.googleapis.com/auth/gmail.modify`:
+Uses:
+- `https://www.googleapis.com/auth/gmail.modify`
+- `https://www.googleapis.com/auth/gmail.settings.basic`
+
+Capabilities:
 - Read, compose, send, and modify email
 - Manage labels
+- Create, list, and delete Gmail filters
 - **Cannot** permanently delete messages (only trash)
+
+Existing authenticated accounts must be removed and added again once after upgrading so the new Gmail settings scope is granted.
 
 ## Testing
 
@@ -69,12 +77,13 @@ Uses `https://www.googleapis.com/auth/gmail.modify`:
 ./vendor/bin/pest
 ```
 
-77 tests, 148 assertions covering:
+Test coverage includes:
 - OAuth code extraction and URL building
 - MIME parsing and base64url encoding
 - Label name resolution
+- Filter create/list/delete command flows
 - Message building (headers, attachments, threading)
-- Secret redaction in error output
+- Secret redaction and HTTP verb coverage
 
 ## License
 

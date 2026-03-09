@@ -46,10 +46,19 @@ Credentials load from `.env` next to binary; tokens save to `~/.gmcli/.env`.
 ~/.claude/skills/gmcli/gmcli thread <id> --download
 ~/.claude/skills/gmcli/gmcli labels list
 ~/.claude/skills/gmcli/gmcli labels <id> --add STARRED --remove UNREAD
+~/.claude/skills/gmcli/gmcli gmail:filters:list
+~/.claude/skills/gmcli/gmcli gmail:filters:create --from "alert@ohdear.app" --add-label "Infra" --skip-inbox
 ~/.claude/skills/gmcli/gmcli send --to "to@example.com" --subject "Hi" --body "Hello"
 ```
 
 Email is optional once configured. Use `~/.claude/skills/gmcli/gmcli <email> <cmd>` to override.
+
+If you upgrade to a version with filter create/delete support and already authenticated before, remove and add the account again once to grant the new Gmail settings scope:
+
+```bash
+~/.claude/skills/gmcli/gmcli accounts:remove you@gmail.com
+~/.claude/skills/gmcli/gmcli accounts:add you@gmail.com
+```
 
 ## Data
 

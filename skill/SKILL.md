@@ -25,6 +25,9 @@ Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
 | `gmcli gmail:thread --thread-id=<id>` | View thread messages |
 | `gmcli gmail:labels:list` | List all labels |
 | `gmcli gmail:labels:modify --thread-ids=<ids> --add/--remove` | Modify thread labels |
+| `gmcli gmail:filters:list` | List Gmail filters |
+| `gmcli gmail:filters:create ...` | Create a Gmail filter |
+| `gmcli gmail:filters:delete --filter-id=<id>` | Delete a Gmail filter |
 | `gmcli gmail:drafts:list` | List drafts |
 | `gmcli gmail:drafts:create --to --subject --body` | Create draft |
 | `gmcli gmail:drafts:get --draft-id=<id>` | View draft |
@@ -45,6 +48,9 @@ Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
 | `gmail:drafts:delete` | `--draft-id` `--json` |
 | `gmail:drafts:send` | `--draft-id` `--json` |
 | `gmail:labels:modify` | `--thread-ids` `--add` `--remove` `--json` |
+| `gmail:filters:list` | `--json` |
+| `gmail:filters:create` | `--from` `--to` `--subject` `--query` `--negated-query` `--has-attachment` `--exclude-chats` `--add-label` `--remove-label` `--skip-inbox` `--mark-read` `--star` `--trash` `--never-spam` `--forward` `--json` |
+| `gmail:filters:delete` | `--filter-id` `--json` |
 | `gmail:url` | `--thread-ids` `--json` |
 | `gmail:labels:list` | `--json` |
 | `gmail:drafts:list` | `--json` |
@@ -93,6 +99,21 @@ gmcli gmail:search "is:unread" --max=5
 # Label operations
 gmcli gmail:labels:modify --thread-ids=abc123 --remove UNREAD
 gmcli gmail:labels:modify --thread-ids=abc123 --add TRASH --remove INBOX
+
+# Filter operations
+gmcli gmail:filters:list
+gmcli gmail:filters:create \
+    --from "alert@ohdear.app" \
+    --add-label "Infra" \
+    --skip-inbox
+gmcli gmail:filters:delete --filter-id=filter123
+```
+
+If an existing account was authenticated before filter support landed, reconnect once to grant Gmail settings access:
+
+```bash
+gmcli accounts:remove you@gmail.com
+gmcli accounts:add you@gmail.com
 ```
 
 ## JSON Output

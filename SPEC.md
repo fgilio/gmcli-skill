@@ -56,6 +56,9 @@ Commands:
 - `gmcli <email> thread <threadId> [--download]`
 - `gmcli <email> labels list`
 - `gmcli <email> labels <threadIds...> [--add L] [--remove L]`
+- `gmcli gmail:filters:list`
+- `gmcli gmail:filters:create [--from] [--to] [--subject] [--query] [--negated-query] [--has-attachment] [--exclude-chats] [--add-label L] [--remove-label L] [--skip-inbox] [--mark-read] [--star] [--trash] [--never-spam] [--forward email]`
+- `gmcli gmail:filters:delete --filter-id <id>`
 - `gmcli <email> drafts list`
 - `gmcli <email> drafts get <draftId> [--download]`
 - `gmcli <email> drafts delete <draftId>`
@@ -67,6 +70,9 @@ Commands:
 Notes:
 - `search` accepts Gmail query syntax; `--max` defaults to 20 when omitted.
 - `labels` accepts label names or IDs; names are case-insensitive.
+- `filters:create` requires at least one criterion and one action.
+- Missing labels passed to `--add-label` are auto-created as user labels.
+- Existing users may need to remove/add their account once after upgrade to grant `gmail.settings.basic`.
 - `--download` writes attachments to `~/.gmcli/attachments/`.
 - `--attach` can be repeated to add multiple files.
 
