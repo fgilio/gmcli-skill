@@ -18,7 +18,7 @@ Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
 | Command | Purpose |
 |---------|---------|
 | `gmcli accounts:credentials <file.json>` | Set OAuth credentials |
-| `gmcli accounts:list` | List configured account |
+| `gmcli accounts:list` | List configured accounts |
 | `gmcli accounts:add <email>` | Add Gmail account via OAuth |
 | `gmcli accounts:remove <email>` | Remove account |
 | `gmcli gmail:search "<query>"` | Search threads |

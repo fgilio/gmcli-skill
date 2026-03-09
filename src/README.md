@@ -1,6 +1,6 @@
 # gmcli - Development
 
-Laravel Zero CLI matching [gmcli v0.1.0](https://github.com/badlogic/gmcli) syntax.
+Laravel Zero CLI for Gmail workflows.
 
 ## Built With
 
@@ -22,8 +22,8 @@ src/
 │   ├── Commands/           # CLI commands
 │   │   ├── DefaultCommand.php   # Main dispatcher
 │   │   ├── BuildCommand.php     # Build binary
-│   │   ├── Accounts/            # accounts credentials|list|add|remove
-│   │   └── Gmail/               # search, thread, labels, filters, drafts, send, url
+│   │   ├── Accounts/            # accounts:credentials|list|add|remove
+│   │   └── Gmail/               # gmail:search|thread|labels|filters|drafts|send|url
 │   └── Services/           # Core services
 │       ├── GmcliPaths.php       # ~/.gmcli/ directory management
 │       ├── GmcliEnv.php         # .env file handling

@@ -38,34 +38,32 @@ These are the non-negotiable requirements for AI-agent-safe CLI skills:
 
 ## Commands Available
 
-Top-level routing (from `DefaultCommand.php`):
-
 ### Account Management
-- `gmcli accounts credentials <file.json>`: Set OAuth credentials
-- `gmcli accounts list`: List configured accounts
-- `gmcli accounts add <email> [--manual]`: Add account (browserless OAuth with `--manual`)
-- `gmcli accounts remove <email>`: Remove account
+- `gmcli accounts:credentials <file.json>`: Set OAuth credentials
+- `gmcli accounts:list`: List configured accounts
+- `gmcli accounts:add <email> [--manual]`: Add account (browserless OAuth with `--manual`)
+- `gmcli accounts:remove <email>`: Remove account
 
 ### Gmail Operations
-Email is optional when a default account exists. You can call commands as:
-- `gmcli <email> <command> [options]`
+Account is optional when a default account exists. You can call commands as:
 - `gmcli <command> [options]` (uses default email from `~/.gmcli/.env`)
+- `gmcli <command> -a <email> [options]`
 
 Commands:
-- `gmcli <email> search <query> [--max N] [--page TOKEN]`
-- `gmcli <email> thread <threadId> [--download]`
-- `gmcli <email> labels list`
-- `gmcli <email> labels <threadIds...> [--add L] [--remove L]`
+- `gmcli gmail:search <query> [--max N] [--page TOKEN]`
+- `gmcli gmail:thread --thread-id <threadId> [--download]`
+- `gmcli gmail:labels:list`
+- `gmcli gmail:labels:modify --thread-ids <threadId>... [--add L] [--remove L]`
 - `gmcli gmail:filters:list`
 - `gmcli gmail:filters:create [--from] [--to] [--subject] [--query] [--negated-query] [--has-attachment] [--exclude-chats] [--add-label L] [--remove-label L] [--skip-inbox] [--mark-read] [--star] [--trash] [--never-spam] [--forward email]`
 - `gmcli gmail:filters:delete --filter-id <id>`
-- `gmcli <email> drafts list`
-- `gmcli <email> drafts get <draftId> [--download]`
-- `gmcli <email> drafts delete <draftId>`
-- `gmcli <email> drafts send <draftId>`
-- `gmcli <email> drafts create --to <emails> --subject <s> --body <b> [--cc] [--bcc] [--reply-to] [--attach <file>...]`
-- `gmcli <email> send --to <emails> --subject <s> --body <b> [--cc] [--bcc] [--reply-to] [--attach <file>...]`
-- `gmcli <email> url <threadIds...>`
+- `gmcli gmail:drafts:list`
+- `gmcli gmail:drafts:get --draft-id <draftId> [--download]`
+- `gmcli gmail:drafts:delete --draft-id <draftId>`
+- `gmcli gmail:drafts:send --draft-id <draftId>`
+- `gmcli gmail:drafts:create --to <emails> --subject <s> --body <b> [--cc] [--bcc] [--reply-to] [--attach <file>...]`
+- `gmcli gmail:send --to <emails> --subject <s> --body <b> [--cc] [--bcc] [--reply-to] [--attach <file>...]`
+- `gmcli gmail:url --thread-ids <threadId>...`
 
 Notes:
 - `search` accepts Gmail query syntax; `--max` defaults to 20 when omitted.
@@ -82,7 +80,7 @@ Notes:
 
 - [ ] `SKILL.md` with valid frontmatter (`name`, `description`)
 - [ ] `SPEC.md` (design decisions, commands, data schema)
-- [ ] `SETUP.md` (global installation instructions)
+- [ ] `skill/SETUP.md` (global installation instructions)
 - [ ] `ANALYTICS.md` (analytics documentation)
 - [ ] `README.md` (user quick-start)
 - [ ] `install` script (executable, symlinks binary to PATH)

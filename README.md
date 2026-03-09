@@ -4,7 +4,7 @@ Gmail command-line interface. Self-contained binary, no PHP required.
 
 ## Install
 
-See [SETUP.md](SETUP.md) or run `./install`
+See [skill/SETUP.md](skill/SETUP.md) or run `./install`
 
 ## Setup
 
@@ -16,8 +16,8 @@ See [SETUP.md](SETUP.md) or run `./install`
 4. Download JSON file
 
 ```bash
-~/.claude/skills/gmcli/gmcli accounts credentials ~/Downloads/client_secret.json
-~/.claude/skills/gmcli/gmcli accounts add you@gmail.com
+~/.claude/skills/gmcli/gmcli accounts:credentials ~/Downloads/client_secret.json
+~/.claude/skills/gmcli/gmcli accounts:add you@gmail.com
 ```
 
 ### Team Distribution
@@ -33,7 +33,7 @@ cp .env.example .env
 Team members only need to:
 
 ```bash
-~/.claude/skills/gmcli/gmcli accounts add their@company.com
+~/.claude/skills/gmcli/gmcli accounts:add their@company.com
 ```
 
 Credentials load from `.env` next to binary; tokens save to `~/.gmcli/.env`.
@@ -41,17 +41,17 @@ Credentials load from `.env` next to binary; tokens save to `~/.gmcli/.env`.
 ## Usage
 
 ```bash
-~/.claude/skills/gmcli/gmcli search "in:inbox is:unread"
-~/.claude/skills/gmcli/gmcli thread <id>
-~/.claude/skills/gmcli/gmcli thread <id> --download
-~/.claude/skills/gmcli/gmcli labels list
-~/.claude/skills/gmcli/gmcli labels <id> --add STARRED --remove UNREAD
+~/.claude/skills/gmcli/gmcli gmail:search "in:inbox is:unread"
+~/.claude/skills/gmcli/gmcli gmail:thread --thread-id=<id>
+~/.claude/skills/gmcli/gmcli gmail:thread --thread-id=<id> --download
+~/.claude/skills/gmcli/gmcli gmail:labels:list
+~/.claude/skills/gmcli/gmcli gmail:labels:modify --thread-ids=<id> --add=STARRED --remove=UNREAD
 ~/.claude/skills/gmcli/gmcli gmail:filters:list
 ~/.claude/skills/gmcli/gmcli gmail:filters:create --from "alert@ohdear.app" --add-label "Infra" --skip-inbox
-~/.claude/skills/gmcli/gmcli send --to "to@example.com" --subject "Hi" --body "Hello"
+~/.claude/skills/gmcli/gmcli gmail:send --to "to@example.com" --subject "Hi" --body "Hello"
 ```
 
-Email is optional once configured. Use `~/.claude/skills/gmcli/gmcli <email> <cmd>` to override.
+Account is optional once configured. Use `~/.claude/skills/gmcli/gmcli -a you@gmail.com <command>` to override.
 
 If you upgrade to a version with filter create/delete support and already authenticated before, remove and add the account again once to grant the new Gmail settings scope:
 
