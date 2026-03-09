@@ -85,3 +85,25 @@ describe('error formatting', function () {
         expect($redacted)->not->toContain('client-id-testing-123');
     });
 });
+
+describe('request methods', function () {
+    it('uses DELETE for delete requests', function () {
+        $client = new class('client-id', 'secret-key', 'refresh-token') extends GmailClient
+        {
+            public array $requests = [];
+
+            protected function request(string $method, string $endpoint, array $params = [], ?array $data = null): array
+            {
+                $this->requests[] = compact('method', 'endpoint', 'params', 'data');
+
+                return [];
+            }
+        };
+
+        $client->delete('/users/me/settings/filters/filter-1');
+
+        expect($client->requests)->toHaveCount(1);
+        expect($client->requests[0]['method'])->toBe('DELETE');
+        expect($client->requests[0]['endpoint'])->toBe('/users/me/settings/filters/filter-1');
+    });
+});

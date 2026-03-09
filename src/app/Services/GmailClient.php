@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use RuntimeException;
 
 /**
@@ -30,14 +32,18 @@ class GmailClient
 
     private ?GmailLogger $logger = null;
 
+    private HttpFactory $http;
+
     public function __construct(
         string $clientId,
         string $clientSecret,
-        string $refreshToken
+        string $refreshToken,
+        ?HttpFactory $http = null
     ) {
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
         $this->refreshToken = $refreshToken;
+        $this->http = $http ?? app(HttpFactory::class);
     }
 
     public function setLogger(GmailLogger $logger): self
@@ -68,11 +74,21 @@ class GmailClient
     }
 
     /**
+     * Makes authenticated DELETE request to Gmail API.
+     *
+     * @throws RuntimeException on failure
+     */
+    public function delete(string $endpoint, array $params = []): array
+    {
+        return $this->request('DELETE', $endpoint, $params);
+    }
+
+    /**
      * Makes authenticated request with automatic retry on 401.
      *
      * @throws RuntimeException on failure
      */
-    private function request(string $method, string $endpoint, array $params = [], ?array $data = null): array
+    protected function request(string $method, string $endpoint, array $params = [], ?array $data = null): array
     {
         $this->ensureAccessToken();
 
@@ -122,26 +138,23 @@ class GmailClient
             'grant_type' => 'refresh_token',
         ];
 
-        $ch = curl_init(self::TOKEN_URL);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => http_build_query($data),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-            CURLOPT_TIMEOUT => 30,
-        ]);
+        try {
+            $response = $this->http
+                ->asForm()
+                ->acceptJson()
+                ->timeout(30)
+                ->post(self::TOKEN_URL, $data);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("HTTP request failed: {$e->getMessage()}");
+        }
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($response === false || $httpCode !== 200) {
-            $decoded = json_decode($response ?: '', true);
+        if (! $response->successful()) {
+            $decoded = $response->json() ?? [];
             $error = $decoded['error_description'] ?? $decoded['error'] ?? 'Token refresh failed';
             throw new RuntimeException($this->redactSecrets($error));
         }
 
-        $decoded = json_decode($response, true);
+        $decoded = $response->json();
         $this->accessToken = $decoded['access_token'];
         $this->tokenExpiry = time() + ($decoded['expires_in'] ?? 3600);
 
@@ -151,45 +164,29 @@ class GmailClient
     /**
      * Makes HTTP request with authentication.
      */
-    private function httpRequest(string $method, string $url, ?array $data = null): array
+    protected function httpRequest(string $method, string $url, ?array $data = null): array
     {
-        $ch = curl_init($url);
+        try {
+            $request = $this->http
+                ->withToken($this->accessToken)
+                ->acceptJson()
+                ->timeout(60);
 
-        $headers = [
-            'Authorization: Bearer '.$this->accessToken,
-            'Accept: application/json',
-        ];
+            $options = [];
 
-        $options = [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => 60,
-        ];
-
-        if ($method === 'POST') {
-            $options[CURLOPT_POST] = true;
             if ($data !== null) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-                $headers[] = 'Content-Type: application/json';
-                $options[CURLOPT_HTTPHEADER] = $headers;
+                $options['json'] = $data;
             }
-        }
 
-        curl_setopt_array($ch, $options);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($response === false) {
-            throw new RuntimeException("HTTP request failed: {$error}");
+            $response = $request->send($method, $url, $options);
+        } catch (ConnectionException $e) {
+            throw new RuntimeException("HTTP request failed: {$e->getMessage()}");
         }
 
         return [
-            'status' => $httpCode,
-            'body' => json_decode($response, true) ?? [],
-            'raw' => $response,
+            'status' => $response->status(),
+            'body' => $response->json() ?? [],
+            'raw' => $response->body(),
         ];
     }
 
