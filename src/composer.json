@@ -21,6 +21,8 @@
         "laravel-zero/framework": "^12.0.2"
     },
     "require-dev": {
+        "illuminate/testing": "^12.40.0",
+        "illuminate/view": "^12.40.0",
         "laravel/pint": "^1.25.1",
         "mockery/mockery": "^1.6.12",
         "pestphp/pest": "^3.8.4|^4.1.2",
@@ -34,9 +36,7 @@
         "doctrine/inflector": "*",
         "fruitcake/php-cors": "*",
         "illuminate/session": "*",
-        "illuminate/view": "*",
         "illuminate/bus": "*",
-        "illuminate/testing": "*",
         "symfony/polyfill-ctype": "*",
         "symfony/polyfill-mbstring": "*",
         "symfony/polyfill-php80": "*",
