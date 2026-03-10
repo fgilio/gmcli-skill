@@ -66,7 +66,7 @@ return [
         LaravelZero\Framework\Commands\StubPublishCommand::class,
 
         // Dev commands (not in released binary)
-        App\Commands\BuildCommand::class,
+        Fgilio\AgentSkillFoundation\Console\BuildCommand::class,
     ],
 
     /*
