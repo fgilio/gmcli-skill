@@ -40,7 +40,7 @@ Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
 
 | Command | Options |
 |---------|---------|
-| `gmail:search` | `--max=20` `--page` `--json` |
+| `gmail:search` | `--limit=20` `--page` `--json` |
 | `gmail:thread` | `--thread-id` `--download` `--json` |
 | `gmail:send` | `--to` `--subject` `--body` `--cc` `--bcc` `--reply-to` `--attach` `--json` |
 | `gmail:drafts:create` | `--to` `--subject` `--body` `--cc` `--bcc` `--reply-to` `--attach` `--open` `--json` |
@@ -94,7 +94,7 @@ gmcli gmail:drafts:create --to "recipient@example.com" \
     --reply-to 19aea1f2f3532db5 --open
 
 # Search with limit
-gmcli gmail:search "is:unread" --max=5
+gmcli gmail:search "is:unread" --limit=5
 
 # Label operations
 gmcli gmail:labels:modify --thread-ids=abc123 --remove UNREAD

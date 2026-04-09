@@ -13,7 +13,7 @@ class SearchCommand extends BaseGmailCommand
 {
     protected $signature = 'gmail:search
         {query : Search query (Gmail search syntax)}
-        {--max=20 : Maximum results}
+        {--limit=20 : Maximum results}
         {--page= : Page token for pagination}';
 
     protected $description = 'Search threads using Gmail query syntax';
@@ -31,7 +31,12 @@ class SearchCommand extends BaseGmailCommand
         }
 
         $query = $this->argument('query');
-        $max = (int) $this->option('max');
+        $limit = (int) $this->option('limit');
+
+        if ($limit < 1) {
+            return $this->failWith('--limit must be a positive integer');
+        }
+
         $pageToken = $this->option('page');
 
         $this->mime = new MimeHelper;
@@ -39,7 +44,7 @@ class SearchCommand extends BaseGmailCommand
 
         $params = [
             'q' => $query,
-            'maxResults' => min($max, 500),
+            'maxResults' => min($limit, 500),
         ];
 
         if ($pageToken) {
