@@ -6,8 +6,11 @@ use App\Services\GmailClient;
 use App\Services\GmailClientFactory;
 use App\Services\GmailLogger;
 use App\Services\GmcliEnv;
+use Fgilio\AgentSkillFoundation\Console\AgentCommand;
 use LaravelZero\Framework\Commands\Command;
+use RuntimeException;
 use Symfony\Component\Console\Input\InputOption;
+use Throwable;
 
 /**
  * Base class for Gmail commands.
@@ -16,10 +19,12 @@ use Symfony\Component\Console\Input\InputOption;
  * - Account resolution (from --account option or default)
  * - Gmail client creation with logging
  * - Verbose/debug output support
- * - JSON output support via --json flag
+ * - JSON output + exception handling via the AgentCommand trait
  */
 abstract class BaseGmailCommand extends Command
 {
+    use AgentCommand;
+
     protected GmcliEnv $env;
 
     protected GmailClient $gmail;
@@ -31,7 +36,6 @@ abstract class BaseGmailCommand extends Command
     protected function configure(): void
     {
         parent::configure();
-        $this->addOption('json', null, InputOption::VALUE_NONE, 'Output as JSON');
         $this->addOption('account', 'a', InputOption::VALUE_REQUIRED, 'Account email (uses default if not specified)');
     }
 
@@ -42,22 +46,16 @@ abstract class BaseGmailCommand extends Command
     {
         $this->env = app(GmcliEnv::class);
 
-        // Use --account option if provided
-        $account = $this->option('account');
-        if ($account) {
-            return $account;
-        }
-
-        // Fall back to configured default
-        return $this->env->getEmail();
+        return $this->option('account') ?: $this->env->getEmail();
     }
 
     /**
      * Initializes Gmail client for the resolved account.
      *
-     * @return bool True if initialization succeeded
+     * Returns null on success, or a failure exit code (with a
+     * user-facing message already emitted) when auth setup fails.
      */
-    protected function initGmail(?string $email = null): bool
+    protected function initGmail(?string $email = null): ?int
     {
         $this->env = app(GmcliEnv::class);
         $this->logger = new GmailLogger(
@@ -66,38 +64,27 @@ abstract class BaseGmailCommand extends Command
             $this->output->isVeryVerbose()
         );
 
-        // Resolve account if not provided
         $email = $email ?? $this->resolveAccount();
 
         if (! $email) {
-            $this->error('No account specified and no default configured.');
-            $this->line('Either use: gmcli gmail:search --account you@gmail.com "query"');
-            $this->line('Or add an account: gmcli accounts:add you@gmail.com');
-
-            return false;
+            return $this->failWith(
+                'No account specified and no default configured. '
+                .'Either pass --account you@gmail.com or run: gmcli accounts:add you@gmail.com'
+            );
         }
 
         $this->account = $email;
 
         if (! $this->env->hasCredentials()) {
-            $this->error('No credentials configured.');
-            $this->line('Run: gmcli accounts:credentials <file.json>');
-
-            return false;
+            return $this->failWith('No credentials configured. Run: gmcli accounts:credentials <file.json>');
         }
 
         if (! $this->env->hasAccount()) {
-            $this->error('No account configured.');
-            $this->line('Run: gmcli accounts:add <email>');
-
-            return false;
+            return $this->failWith('No account configured. Run: gmcli accounts:add <email>');
         }
 
         if (! $this->env->matchesEmail($email)) {
-            $configuredEmail = $this->env->getEmail();
-            $this->error("Email does not match configured account: {$configuredEmail}");
-
-            return false;
+            return $this->failWith("Email does not match configured account: {$this->env->getEmail()}");
         }
 
         $this->gmail = app(GmailClientFactory::class)->make(
@@ -107,79 +94,43 @@ abstract class BaseGmailCommand extends Command
             $this->logger
         );
 
-        // Check for permission warnings
         $warning = $this->env->getPermissionWarning();
         if ($warning) {
             $this->warn($warning);
             $this->newLine();
         }
 
-        return true;
+        return null;
     }
 
     /**
-     * Checks if output should be JSON (explicit --json flag).
+     * Rewrite Gmail API scope errors into an actionable re-consent hint.
+     *
+     * @return array{message: string, meta: array<string, mixed>}|null
      */
-    protected function shouldOutputJson(): bool
+    protected function extractExceptionDetails(Throwable $e): ?array
     {
-        return $this->hasOption('json') && $this->option('json');
-    }
+        if (! $e instanceof RuntimeException) {
+            return null;
+        }
 
-    /**
-     * Outputs data in standard JSON envelope.
-     */
-    protected function outputJson(mixed $data): int
-    {
-        $this->line(json_encode(['data' => $data], JSON_THROW_ON_ERROR));
+        $normalized = strtolower($e->getMessage());
 
-        return self::SUCCESS;
-    }
-
-    /**
-     * Outputs error as JSON to stderr.
-     */
-    protected function jsonError(string $message): int
-    {
-        fwrite(STDERR, json_encode(['error' => $message])."\n");
-
-        return self::FAILURE;
-    }
-
-    protected function normalizeScopeError(\RuntimeException $exception): \RuntimeException
-    {
-        $message = $exception->getMessage();
-        $normalized = strtolower($message);
-
-        if (
-            str_contains($normalized, 'insufficient authentication scopes')
+        $isScopeError = str_contains($normalized, 'insufficient authentication scopes')
             || str_contains($normalized, 'insufficientpermissions')
-            || str_contains($normalized, 'insufficient permissions')
-        ) {
-            return new \RuntimeException(
-                "Filter management requires renewed Gmail consent.\n"
-                .'Run: gmcli accounts:remove '.$this->account."\n"
-                .'Then: gmcli accounts:add '.$this->account
-            );
+            || str_contains($normalized, 'insufficient permissions');
+
+        if (! $isScopeError) {
+            return null;
         }
 
-        return $exception;
-    }
+        $account = $this->account ?? '<email>';
 
-    protected function renderRuntimeException(\RuntimeException $exception): void
-    {
-        $lines = preg_split('/\r?\n/', $exception->getMessage()) ?: [];
-        $headline = array_shift($lines);
-
-        if ($headline !== null && $headline !== '') {
-            $this->error($headline);
-        }
-
-        foreach ($lines as $line) {
-            if ($line === '') {
-                continue;
-            }
-
-            $this->line($line);
-        }
+        return [
+            'message' => "Filter management requires renewed Gmail consent.\n"
+                .'Run: gmcli accounts:remove '.$account."\n"
+                .'Then: gmcli accounts:add '.$account,
+            'meta' => [],
+        ];
     }
 }

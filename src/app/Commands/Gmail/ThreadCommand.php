@@ -2,8 +2,8 @@
 
 namespace App\Commands\Gmail;
 
-use App\Services\Analytics;
 use App\Services\GmailIdHelper;
+use App\Services\GmcliPaths;
 use App\Services\MimeHelper;
 
 /**
@@ -21,92 +21,59 @@ class ThreadCommand extends BaseGmailCommand
 
     private MimeHelper $mime;
 
-    public function handle(Analytics $analytics): int
+    public function handle(): int
     {
-        $startTime = microtime(true);
-        $email = null;
         $threadId = $this->option('thread-id');
         $download = $this->option('download');
 
         if (empty($threadId)) {
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:thread', self::FAILURE, ['found' => false], $startTime);
-
-                return $this->jsonError('Missing thread ID.');
-            }
-            $this->error('Missing thread ID.');
-            $this->line('Usage: gmcli gmail:thread --thread-id=<thread-id> [--download]');
-
-            $analytics->track('gmail:thread', self::FAILURE, ['found' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('Missing thread ID. Usage: gmcli gmail:thread --thread-id=<thread-id> [--download]');
         }
 
-        // Parse thread ID from URL or FMfcg token
         $helper = new GmailIdHelper;
         $parsed = $helper->parse($threadId);
         $threadId = $parsed['threadId'];
 
-        if (! $this->initGmail()) {
-            $analytics->track('gmail:thread', self::FAILURE, ['found' => false], $startTime);
-
-            return self::FAILURE;
+        if ($failure = $this->initGmail()) {
+            return $failure;
         }
 
         $this->logger->verbose("Resolved: {$parsed['original']} -> {$threadId} ({$parsed['source']})");
         $this->mime = new MimeHelper;
 
-        try {
-            $this->logger->verbose("Fetching thread: {$threadId}");
+        $this->logger->verbose("Fetching thread: {$threadId}");
 
-            $thread = $this->gmail->get("/users/me/threads/{$threadId}", [
-                'format' => 'full',
-            ]);
+        $thread = $this->gmail->get("/users/me/threads/{$threadId}", [
+            'format' => 'full',
+        ]);
 
-            $messages = $thread['messages'] ?? [];
+        $messages = $thread['messages'] ?? [];
 
-            if (empty($messages)) {
-                if ($this->shouldOutputJson()) {
-                    $analytics->track('gmail:thread', self::SUCCESS, ['found' => true, 'message_count' => 0], $startTime);
-
-                    return $this->outputJson(['threadId' => $threadId, 'messages' => []]);
-                }
-                $this->info('Thread has no messages.');
-
-                $analytics->track('gmail:thread', self::SUCCESS, ['found' => true, 'message_count' => 0], $startTime);
-
-                return self::SUCCESS;
+        if (empty($messages)) {
+            if ($this->wantsJson()) {
+                return $this->outputJson(['threadId' => $threadId, 'messages' => []]);
             }
 
-            // JSON output
-            if ($this->shouldOutputJson()) {
-                $jsonMessages = [];
-                foreach ($messages as $message) {
-                    $jsonMessages[] = $this->buildMessageData($message);
-                }
-
-                $analytics->track('gmail:thread', self::SUCCESS, ['found' => true, 'message_count' => count($messages)], $startTime);
-
-                return $this->outputJson(['threadId' => $threadId, 'messages' => $jsonMessages]);
-            }
-
-            // Text output
-            foreach ($messages as $index => $message) {
-                if ($index > 0) {
-                    $this->line(str_repeat('-', 60));
-                }
-
-                $this->displayMessage($message, $download);
-            }
-
-            $analytics->track('gmail:thread', self::SUCCESS, ['found' => true, 'message_count' => count($messages)], $startTime);
+            $this->info('Thread has no messages.');
 
             return self::SUCCESS;
-        } catch (\RuntimeException $e) {
-            $analytics->track('gmail:thread', self::FAILURE, ['found' => false], $startTime);
-
-            return $this->jsonError($e->getMessage());
         }
+
+        if ($this->wantsJson()) {
+            $jsonMessages = array_map(fn ($message) => $this->buildMessageData($message), $messages);
+
+            return $this->outputJson(['threadId' => $threadId, 'messages' => $jsonMessages]);
+        }
+
+        foreach ($messages as $index => $message) {
+            if ($index > 0) {
+                $this->line(str_repeat('-', 60));
+            }
+
+            $this->displayMessage($message, $download);
+        }
+
+        return self::SUCCESS;
     }
 
     private function buildMessageData(array $message): array
@@ -136,7 +103,6 @@ class ThreadCommand extends BaseGmailCommand
         $payload = $message['payload'] ?? [];
         $messageId = $message['id'];
 
-        // Headers
         $from = $this->mime->getHeader($payload, 'From') ?? '';
         $to = $this->mime->getHeader($payload, 'To') ?? '';
         $cc = $this->mime->getHeader($payload, 'Cc');
@@ -156,7 +122,6 @@ class ThreadCommand extends BaseGmailCommand
         }
         $this->line("Subject: {$subject}");
 
-        // Labels
         $labelIds = $message['labelIds'] ?? [];
         if (! empty($labelIds)) {
             $this->line('Labels: '.implode(', ', $labelIds));
@@ -164,15 +129,9 @@ class ThreadCommand extends BaseGmailCommand
 
         $this->newLine();
 
-        // Body
         $body = $this->mime->extractTextBody($payload);
-        if ($body !== '') {
-            $this->line($body);
-        } else {
-            $this->line('(no text/plain body)');
-        }
+        $this->line($body !== '' ? $body : '(no text/plain body)');
 
-        // Attachments
         $attachments = $this->mime->getAttachments($payload);
         if (! empty($attachments)) {
             $this->newLine();
@@ -206,7 +165,6 @@ class ThreadCommand extends BaseGmailCommand
 
         $content = $this->mime->decodeBase64Url($data);
 
-        // Build safe filename
         $filename = $this->buildSafeFilename($messageId, $attachment);
         $path = $this->getAttachmentsPath().'/'.$filename;
 
@@ -216,7 +174,6 @@ class ThreadCommand extends BaseGmailCommand
 
     private function buildSafeFilename(string $messageId, array $attachment): string
     {
-        // Format: {messageId}_{attachmentId8}_{name}
         $attachmentIdPrefix = substr($attachment['attachmentId'], 0, 8);
         $name = $this->sanitizeFilename($attachment['filename']);
 
@@ -225,7 +182,6 @@ class ThreadCommand extends BaseGmailCommand
 
     private function sanitizeFilename(string $filename): string
     {
-        // Remove path traversal attempts and invalid characters
         $filename = basename($filename);
         $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
 
@@ -234,7 +190,7 @@ class ThreadCommand extends BaseGmailCommand
 
     private function getAttachmentsPath(): string
     {
-        $paths = app(\App\Services\GmcliPaths::class);
+        $paths = app(GmcliPaths::class);
         $paths->ensureAttachmentsDir();
 
         return $paths->attachmentsDir();

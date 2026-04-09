@@ -2,7 +2,6 @@
 
 namespace App\Commands\Gmail;
 
-use App\Services\Analytics;
 use App\Services\LabelResolver;
 
 /**
@@ -17,95 +16,55 @@ class LabelsModifyCommand extends BaseGmailCommand
 
     protected $description = 'Modify labels on threads';
 
-    public function handle(Analytics $analytics): int
+    public function handle(): int
     {
-        $startTime = microtime(true);
-        $email = null;
         $threadIds = $this->option('thread-ids') ?: [];
         $addLabels = $this->option('add') ?: [];
         $removeLabels = $this->option('remove') ?: [];
 
         if (empty($threadIds)) {
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-                return $this->jsonError('Missing thread IDs.');
-            }
-            $this->error('Missing thread IDs.');
-            $this->line('Usage: gmcli gmail:labels:modify --thread-ids=<thread-id> [--thread-ids=<thread-id>...] [--add=<label>] [--remove=<label>]');
-
-            $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('Missing thread IDs. Usage: gmcli gmail:labels:modify --thread-ids=<thread-id> [--add=<label>] [--remove=<label>]');
         }
 
         if (empty($addLabels) && empty($removeLabels)) {
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-                return $this->jsonError('No labels to add or remove.');
-            }
-            $this->error('No labels to add or remove.');
-            $this->line('Usage: gmcli gmail:labels:modify --thread-ids=<thread-id> [--thread-ids=<thread-id>...] [--add=<label>] [--remove=<label>]');
-
-            $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('No labels to add or remove.');
         }
 
-        if (! $this->initGmail()) {
-            $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+        if ($failure = $this->initGmail()) {
+            return $failure;
         }
 
-        try {
-            // Load and resolve labels
-            $resolver = $this->loadLabels();
+        $resolver = $this->loadLabels();
 
-            $addResolved = $resolver->resolveMany($addLabels);
-            $removeResolved = $resolver->resolveMany($removeLabels);
+        $addResolved = $resolver->resolveMany($addLabels);
+        $removeResolved = $resolver->resolveMany($removeLabels);
 
-            // Report any not found labels
-            if (! empty($addResolved['notFound'])) {
-                $this->warn('Labels not found (add): '.implode(', ', $addResolved['notFound']));
-            }
-            if (! empty($removeResolved['notFound'])) {
-                $this->warn('Labels not found (remove): '.implode(', ', $removeResolved['notFound']));
-            }
-
-            // Nothing to do if all labels not found
-            if (empty($addResolved['resolved']) && empty($removeResolved['resolved'])) {
-                $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-                return $this->jsonError('No valid labels to modify.');
-            }
-
-            // Modify each thread
-            foreach ($threadIds as $threadId) {
-                $this->modifyThread($threadId, $addResolved['resolved'], $removeResolved['resolved']);
-            }
-
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:labels:modify', self::SUCCESS, ['success' => true, 'thread_count' => count($threadIds)], $startTime);
-
-                return $this->outputJson([
-                    'threads' => $threadIds,
-                    'added' => $addResolved['resolved'],
-                    'removed' => $removeResolved['resolved'],
-                ]);
-            }
-
-            $this->info('Labels modified.');
-
-            $analytics->track('gmail:labels:modify', self::SUCCESS, ['success' => true, 'thread_count' => count($threadIds)], $startTime);
-
-            return self::SUCCESS;
-        } catch (\RuntimeException $e) {
-            $analytics->track('gmail:labels:modify', self::FAILURE, ['success' => false], $startTime);
-
-            return $this->jsonError($e->getMessage());
+        if (! empty($addResolved['notFound'])) {
+            $this->warn('Labels not found (add): '.implode(', ', $addResolved['notFound']));
         }
+        if (! empty($removeResolved['notFound'])) {
+            $this->warn('Labels not found (remove): '.implode(', ', $removeResolved['notFound']));
+        }
+
+        if (empty($addResolved['resolved']) && empty($removeResolved['resolved'])) {
+            return $this->failWith('No valid labels to modify.');
+        }
+
+        foreach ($threadIds as $threadId) {
+            $this->modifyThread($threadId, $addResolved['resolved'], $removeResolved['resolved']);
+        }
+
+        if ($this->wantsJson()) {
+            return $this->outputJson([
+                'threads' => $threadIds,
+                'added' => $addResolved['resolved'],
+                'removed' => $removeResolved['resolved'],
+            ]);
+        }
+
+        $this->info('Labels modified.');
+
+        return self::SUCCESS;
     }
 
     private function loadLabels(): LabelResolver

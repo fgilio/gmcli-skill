@@ -2,7 +2,6 @@
 
 namespace App\Commands\Gmail;
 
-use App\Services\Analytics;
 use App\Services\MessageBuilder;
 use App\Services\MimeHelper;
 
@@ -23,100 +22,74 @@ class DraftsCreateCommand extends BaseGmailCommand
 
     protected $description = 'Create a new draft';
 
-    public function handle(Analytics $analytics): int
+    public function handle(): int
     {
-        $startTime = microtime(true);
-        $email = null;
         $to = $this->option('to');
         $subject = $this->option('subject');
         $body = $this->option('body');
+
+        if (empty($to) || empty($subject) || empty($body)) {
+            return $this->failWith('Missing required options: --to, --subject, --body');
+        }
+
+        if ($failure = $this->initGmail()) {
+            return $failure;
+        }
+
         $cc = $this->option('cc');
         $bcc = $this->option('bcc');
         $replyTo = $this->option('reply-to');
         $attachments = $this->option('attach') ?: [];
 
-        if (empty($to) || empty($subject) || empty($body)) {
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:drafts:create', self::FAILURE, ['success' => false], $startTime);
+        $builder = new MessageBuilder;
+        $builder->from($this->env->getEmail())
+            ->to($this->parseEmails($to))
+            ->subject($subject)
+            ->body($body);
 
-                return $this->jsonError('Missing required options: --to, --subject, --body');
-            }
-            $this->error('Missing required options.');
-            $this->line('Usage: gmcli gmail:drafts:create --to <emails> --subject <s> --body <b>');
-
-            $analytics->track('gmail:drafts:create', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+        if ($cc) {
+            $builder->cc($this->parseEmails($cc));
         }
 
-        if (! $this->initGmail()) {
-            $analytics->track('gmail:drafts:create', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+        if ($bcc) {
+            $builder->bcc($this->parseEmails($bcc));
         }
 
-        try {
-            $builder = new MessageBuilder;
-            $builder->from($this->env->getEmail())
-                ->to($this->parseEmails($to))
-                ->subject($subject)
-                ->body($body);
-
-            if ($cc) {
-                $builder->cc($this->parseEmails($cc));
-            }
-
-            if ($bcc) {
-                $builder->bcc($this->parseEmails($bcc));
-            }
-
-            // Handle reply-to
-            if ($replyTo) {
-                $this->setupReplyTo($builder, $replyTo);
-            }
-
-            // Add attachments
-            foreach ($attachments as $path) {
-                $builder->attach($path);
-            }
-
-            $raw = $builder->build();
-            $payload = ['message' => ['raw' => $raw]];
-
-            // Add thread ID if replying
-            if ($builder->getThreadId()) {
-                $payload['message']['threadId'] = $builder->getThreadId();
-            }
-
-            $this->logger->verbose('Creating draft...');
-            $response = $this->gmail->post('/users/me/drafts', $payload);
-
-            $draftId = $response['id'] ?? '';
-            $messageId = $response['message']['id'] ?? '';
-
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:drafts:create', self::SUCCESS, ['success' => true], $startTime);
-
-                return $this->outputJson([
-                    'draftId' => $draftId,
-                    'messageId' => $messageId,
-                ]);
-            }
-
-            $this->info("Draft created: {$draftId}");
-
-            if ($this->option('open')) {
-                $this->openInBrowser($builder->getThreadId());
-            }
-
-            $analytics->track('gmail:drafts:create', self::SUCCESS, ['success' => true], $startTime);
-
-            return self::SUCCESS;
-        } catch (\RuntimeException $e) {
-            $analytics->track('gmail:drafts:create', self::FAILURE, ['success' => false], $startTime);
-
-            return $this->jsonError($e->getMessage());
+        if ($replyTo) {
+            $this->setupReplyTo($builder, $replyTo);
         }
+
+        foreach ($attachments as $path) {
+            $builder->attach($path);
+        }
+
+        $raw = $builder->build();
+        $payload = ['message' => ['raw' => $raw]];
+
+        if ($builder->getThreadId()) {
+            $payload['message']['threadId'] = $builder->getThreadId();
+        }
+
+        $this->logger->verbose('Creating draft...');
+        $response = $this->gmail->post('/users/me/drafts', $payload);
+
+        $draftId = $response['id'] ?? '';
+        $messageId = $response['message']['id'] ?? '';
+
+        if ($this->wantsJson()) {
+            return $this->outputJson([
+                'draftId' => $draftId,
+                'messageId' => $messageId,
+            ]);
+        }
+
+        $this->info("Draft created: {$draftId}");
+
+        if ($this->option('open')) {
+            $this->openInBrowser($builder->getThreadId());
+        }
+
+        return self::SUCCESS;
     }
 
     private function parseEmails(string $emails): array
@@ -128,7 +101,6 @@ class DraftsCreateCommand extends BaseGmailCommand
     {
         $this->logger->verbose("Fetching reply-to message: {$messageId}");
 
-        // Get message metadata for threading headers
         $message = $this->gmail->get("/users/me/messages/{$messageId}", [
             'format' => 'metadata',
             'metadataHeaders' => ['Message-ID', 'References'],
@@ -140,15 +112,11 @@ class DraftsCreateCommand extends BaseGmailCommand
         $headerMsgId = $mime->getHeader($payload, 'Message-ID') ?? '';
         $references = $mime->getHeader($payload, 'References') ?? '';
 
-        // Build references chain
         $newReferences = $references ? "{$references} {$headerMsgId}" : $headerMsgId;
 
         $builder->replyTo($headerMsgId, $newReferences, $message['threadId'] ?? null);
     }
 
-    /**
-     * Opens Gmail in browser after draft creation.
-     */
     private function openInBrowser(?string $threadId): void
     {
         $email = urlencode($this->env->getEmail());

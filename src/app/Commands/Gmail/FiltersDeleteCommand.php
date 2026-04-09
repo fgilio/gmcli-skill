@@ -2,8 +2,6 @@
 
 namespace App\Commands\Gmail;
 
-use App\Services\Analytics;
-
 /**
  * Deletes a Gmail filter.
  */
@@ -14,57 +12,26 @@ class FiltersDeleteCommand extends BaseGmailCommand
 
     protected $description = 'Delete a Gmail filter';
 
-    public function handle(Analytics $analytics): int
+    public function handle(): int
     {
-        $startTime = microtime(true);
         $filterId = $this->option('filter-id');
 
         if (empty($filterId)) {
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:filters:delete', self::FAILURE, ['success' => false], $startTime);
-
-                return $this->jsonError('Missing filter ID.');
-            }
-
-            $this->error('Missing filter ID.');
-
-            $analytics->track('gmail:filters:delete', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('Missing filter ID.');
         }
 
-        if (! $this->initGmail()) {
-            $analytics->track('gmail:filters:delete', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+        if ($failure = $this->initGmail()) {
+            return $failure;
         }
 
-        try {
-            $this->gmail->delete("/users/me/settings/filters/{$filterId}");
+        $this->gmail->delete("/users/me/settings/filters/{$filterId}");
 
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:filters:delete', self::SUCCESS, ['success' => true], $startTime);
-
-                return $this->outputJson(['filterId' => $filterId]);
-            }
-
-            $this->info("Filter deleted: {$filterId}");
-
-            $analytics->track('gmail:filters:delete', self::SUCCESS, ['success' => true], $startTime);
-
-            return self::SUCCESS;
-        } catch (\RuntimeException $e) {
-            $exception = $this->normalizeScopeError($e);
-
-            $analytics->track('gmail:filters:delete', self::FAILURE, ['success' => false], $startTime);
-
-            if ($this->shouldOutputJson()) {
-                return $this->jsonError($exception->getMessage());
-            }
-
-            $this->renderRuntimeException($exception);
-
-            return self::FAILURE;
+        if ($this->wantsJson()) {
+            return $this->outputJson(['filterId' => $filterId]);
         }
+
+        $this->info("Filter deleted: {$filterId}");
+
+        return self::SUCCESS;
     }
 }

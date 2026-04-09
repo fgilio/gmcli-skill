@@ -2,11 +2,10 @@
 
 namespace App\Commands\Accounts;
 
-use App\Services\Analytics;
 use App\Services\GmcliEnv;
 use App\Services\OAuthService;
+use Fgilio\AgentSkillFoundation\Console\AgentCommand;
 use LaravelZero\Framework\Commands\Command;
-use RuntimeException;
 
 /**
  * Adds a Gmail account via OAuth flow.
@@ -17,44 +16,34 @@ use RuntimeException;
  */
 class AddCommand extends Command
 {
+    use AgentCommand;
+
     protected $signature = 'accounts:add
         {email? : Email address to add}
         {--manual : Use browserless OAuth flow (manual paste)}';
 
     protected $description = 'Add a Gmail account via OAuth';
 
-    public function handle(GmcliEnv $env, Analytics $analytics): int
+    public function handle(GmcliEnv $env): int
     {
-        $startTime = microtime(true);
+        if ($this->wantsJson()) {
+            return $this->failWith('accounts:add is interactive and does not support --json; run without --json');
+        }
+
         $email = $this->argument('email');
 
         if (empty($email)) {
-            $this->error('Missing email address.');
-            $this->line('');
-            $this->line('Usage: gmcli accounts:add <email> [--manual]');
-
-            $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('Missing email address. Usage: gmcli accounts:add <email> [--manual]');
         }
 
         if (! $env->hasCredentials()) {
-            $this->error('No credentials configured.');
-            $this->line('Run: gmcli accounts:credentials <file.json> first.');
-
-            $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('No credentials configured. Run: gmcli accounts:credentials <file.json> first.');
         }
 
         if ($env->hasAccount()) {
             $existingEmail = $env->getEmail();
-            $this->error("Account already configured: {$existingEmail}");
-            $this->line('Remove it first: gmcli accounts:remove '.$existingEmail);
 
-            $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith("Account already configured: {$existingEmail}. Remove it first: gmcli accounts:remove {$existingEmail}");
         }
 
         $oauth = new OAuthService(
@@ -63,29 +52,17 @@ class AddCommand extends Command
             120
         );
 
-        try {
-            if ($this->option('manual')) {
-                $tokens = $this->runManualFlow($oauth);
-            } else {
-                $tokens = $this->runAutoFlow($oauth);
-            }
+        $tokens = $this->option('manual')
+            ? $this->runManualFlow($oauth)
+            : $this->runAutoFlow($oauth);
 
-            $env->set('GMAIL_ADDRESS', $email);
-            $env->set('GMAIL_REFRESH_TOKEN', $tokens['refresh_token']);
-            $env->save();
+        $env->set('GMAIL_ADDRESS', $email);
+        $env->set('GMAIL_REFRESH_TOKEN', $tokens['refresh_token']);
+        $env->save();
 
-            $this->info("Account added: {$email}");
+        $this->info("Account added: {$email}");
 
-            $analytics->track('accounts:add', self::SUCCESS, ['success' => true], $startTime);
-
-            return self::SUCCESS;
-        } catch (RuntimeException $e) {
-            $this->error($e->getMessage());
-
-            $analytics->track('accounts:add', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
-        }
+        return self::SUCCESS;
     }
 
     private function runAutoFlow(OAuthService $oauth): array
@@ -98,7 +75,6 @@ class AddCommand extends Command
             $this->line($url);
             $this->line('');
 
-            // Open browser (cross-platform)
             $command = PHP_OS_FAMILY === 'Darwin' ? 'open' : 'xdg-open';
             exec("{$command} ".escapeshellarg($url).' 2>/dev/null &');
         });

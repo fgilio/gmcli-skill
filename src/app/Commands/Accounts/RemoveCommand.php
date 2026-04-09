@@ -2,8 +2,8 @@
 
 namespace App\Commands\Accounts;
 
-use App\Services\Analytics;
 use App\Services\GmcliEnv;
+use Fgilio\AgentSkillFoundation\Console\AgentCommand;
 use LaravelZero\Framework\Commands\Command;
 
 /**
@@ -11,42 +11,28 @@ use LaravelZero\Framework\Commands\Command;
  */
 class RemoveCommand extends Command
 {
+    use AgentCommand;
+
     protected $signature = 'accounts:remove {email? : Email address to remove}';
 
     protected $description = 'Remove a Gmail account';
 
-    public function handle(GmcliEnv $env, Analytics $analytics): int
+    public function handle(GmcliEnv $env): int
     {
-        $startTime = microtime(true);
         $email = $this->argument('email');
 
         if (empty($email)) {
-            $this->error('Missing email address.');
-            $this->line('');
-            $this->line('Usage: gmcli accounts:remove <email>');
-
-            $analytics->track('accounts:remove', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('Missing email address. Usage: gmcli accounts:remove <email>');
         }
 
         if (! $env->hasAccount()) {
-            $this->error('No account configured.');
-
-            $analytics->track('accounts:remove', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('No account configured.');
         }
 
         $existingEmail = $env->getEmail();
 
         if (! $env->matchesEmail($email)) {
-            $this->error("Account not found: {$email}");
-            $this->line("Configured account: {$existingEmail}");
-
-            $analytics->track('accounts:remove', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith("Account not found: {$email}. Configured account: {$existingEmail}");
         }
 
         $env->remove('GMAIL_ADDRESS');
@@ -54,9 +40,11 @@ class RemoveCommand extends Command
         $env->remove('GMAIL_ADDRESS_ALIASES');
         $env->save();
 
-        $this->info("Account removed: {$existingEmail}");
+        if ($this->wantsJson()) {
+            return $this->outputJson(['email' => $existingEmail]);
+        }
 
-        $analytics->track('accounts:remove', self::SUCCESS, ['success' => true], $startTime);
+        $this->info("Account removed: {$existingEmail}");
 
         return self::SUCCESS;
     }

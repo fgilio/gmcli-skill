@@ -2,8 +2,6 @@
 
 namespace App\Commands\Gmail;
 
-use App\Services\Analytics;
-
 /**
  * Generates Gmail web URLs for threads.
  *
@@ -16,51 +14,35 @@ class UrlCommand extends BaseGmailCommand
 
     protected $description = 'Generate Gmail web URLs for threads';
 
-    public function handle(Analytics $analytics): int
+    public function handle(): int
     {
-        $startTime = microtime(true);
-        $email = null;
         $threadIds = $this->option('thread-ids') ?: [];
 
         if (empty($threadIds)) {
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:url', self::FAILURE, ['count' => 0], $startTime);
-
-                return $this->jsonError('Missing thread IDs.');
-            }
-            $this->error('Missing thread IDs.');
-            $this->line('Usage: gmcli gmail:url --thread-ids=<thread-id> [--thread-ids=<thread-id>...]');
-
-            $analytics->track('gmail:url', self::FAILURE, ['count' => 0], $startTime);
-
-            return self::FAILURE;
+            return $this->failWith('Missing thread IDs. Usage: gmcli gmail:url --thread-ids=<thread-id> [--thread-ids=<thread-id>...]');
         }
 
-        if (! $this->initGmail()) {
-            $analytics->track('gmail:url', self::FAILURE, ['count' => 0], $startTime);
-
-            return self::FAILURE;
+        if ($failure = $this->initGmail()) {
+            return $failure;
         }
 
         $configuredEmail = $this->env->getEmail();
 
-        $results = [];
-        foreach ($threadIds as $threadId) {
-            $url = $this->buildGmailUrl($threadId, $configuredEmail);
-            $results[] = ['threadId' => $threadId, 'url' => $url];
-        }
+        $results = array_map(
+            fn ($threadId) => [
+                'threadId' => $threadId,
+                'url' => $this->buildGmailUrl($threadId, $configuredEmail),
+            ],
+            $threadIds
+        );
 
-        if ($this->shouldOutputJson()) {
-            $analytics->track('gmail:url', self::SUCCESS, ['count' => count($results)], $startTime);
-
+        if ($this->wantsJson()) {
             return $this->outputJson($results);
         }
 
         foreach ($results as $result) {
             $this->line("{$result['threadId']}\t{$result['url']}");
         }
-
-        $analytics->track('gmail:url', self::SUCCESS, ['count' => count($results)], $startTime);
 
         return self::SUCCESS;
     }
@@ -70,7 +52,6 @@ class UrlCommand extends BaseGmailCommand
      */
     public function buildGmailUrl(string $threadId, string $email): string
     {
-        // Gmail uses lowercase hex thread IDs in URLs
         $hex = strtolower(ltrim($threadId, '0x'));
         $encodedEmail = urlencode($email);
 

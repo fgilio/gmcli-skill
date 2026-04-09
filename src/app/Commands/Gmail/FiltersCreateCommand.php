@@ -2,8 +2,8 @@
 
 namespace App\Commands\Gmail;
 
-use App\Services\Analytics;
 use App\Services\LabelResolver;
+use RuntimeException;
 
 /**
  * Creates a Gmail filter.
@@ -37,62 +37,40 @@ class FiltersCreateCommand extends BaseGmailCommand
 
     protected $description = 'Create a Gmail filter';
 
-    public function handle(Analytics $analytics): int
+    public function handle(): int
     {
-        $startTime = microtime(true);
-
         if (! $this->hasCriteria()) {
-            return $this->failCommand($analytics, $startTime, 'At least one filter criterion is required.');
+            return $this->failWith('At least one filter criterion is required.');
         }
 
         if (! $this->hasAction()) {
-            return $this->failCommand($analytics, $startTime, 'At least one filter action is required.');
+            return $this->failWith('At least one filter action is required.');
         }
 
-        if (! $this->initGmail()) {
-            $analytics->track('gmail:filters:create', self::FAILURE, ['success' => false], $startTime);
-
-            return self::FAILURE;
+        if ($failure = $this->initGmail()) {
+            return $failure;
         }
 
-        try {
-            [$resolver, $labelsById] = $this->loadLabels();
-            $addLabelIds = $this->resolveAddLabelIds($resolver, $labelsById, $this->option('add-label') ?: []);
+        [$resolver, $labelsById] = $this->loadLabels();
+        $addLabelIds = $this->resolveAddLabelIds($resolver, $labelsById, $this->option('add-label') ?: []);
 
-            [$resolver, $labelsById] = $this->loadLabels();
-            $removeLabelIds = $this->resolveExistingLabelIds($resolver, $this->option('remove-label') ?: [], 'remove');
+        [$resolver] = $this->loadLabels();
+        $removeLabelIds = $this->resolveExistingLabelIds($resolver, $this->option('remove-label') ?: [], 'remove');
 
-            $payload = [
-                'criteria' => $this->buildCriteria(),
-                'action' => $this->buildAction($addLabelIds, $removeLabelIds),
-            ];
+        $payload = [
+            'criteria' => $this->buildCriteria(),
+            'action' => $this->buildAction($addLabelIds, $removeLabelIds),
+        ];
 
-            $filter = $this->gmail->post('/users/me/settings/filters', $payload);
+        $filter = $this->gmail->post('/users/me/settings/filters', $payload);
 
-            if ($this->shouldOutputJson()) {
-                $analytics->track('gmail:filters:create', self::SUCCESS, ['success' => true], $startTime);
-
-                return $this->outputJson($filter);
-            }
-
-            $this->info('Filter created: '.($filter['id'] ?? ''));
-
-            $analytics->track('gmail:filters:create', self::SUCCESS, ['success' => true], $startTime);
-
-            return self::SUCCESS;
-        } catch (\RuntimeException $e) {
-            $exception = $this->normalizeScopeError($e);
-
-            $analytics->track('gmail:filters:create', self::FAILURE, ['success' => false], $startTime);
-
-            if ($this->shouldOutputJson()) {
-                return $this->jsonError($exception->getMessage());
-            }
-
-            $this->renderRuntimeException($exception);
-
-            return self::FAILURE;
+        if ($this->wantsJson()) {
+            return $this->outputJson($filter);
         }
+
+        $this->info('Filter created: '.($filter['id'] ?? ''));
+
+        return self::SUCCESS;
     }
 
     private function hasCriteria(): bool
@@ -120,19 +98,6 @@ class FiltersCreateCommand extends BaseGmailCommand
             || ! empty($this->option('forward'));
     }
 
-    private function failCommand(Analytics $analytics, float $startTime, string $message): int
-    {
-        $analytics->track('gmail:filters:create', self::FAILURE, ['success' => false], $startTime);
-
-        if ($this->shouldOutputJson()) {
-            return $this->jsonError($message);
-        }
-
-        $this->error($message);
-
-        return self::FAILURE;
-    }
-
     private function loadLabels(): array
     {
         $response = $this->gmail->get('/users/me/labels');
@@ -153,7 +118,7 @@ class FiltersCreateCommand extends BaseGmailCommand
 
         foreach ($resolved['notFound'] as $label) {
             if ($this->looksLikeLabelId($label) || $this->isReservedSystemLabel($label)) {
-                throw new \RuntimeException("Unable to find label to add: {$label}");
+                throw new RuntimeException("Unable to find label to add: {$label}");
             }
 
             $created = $this->gmail->post('/users/me/labels', [
@@ -174,7 +139,7 @@ class FiltersCreateCommand extends BaseGmailCommand
         $resolved = $resolver->resolveMany($labels);
 
         if (! empty($resolved['notFound'])) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Unable to find label(s) to '.$action.': '.implode(', ', $resolved['notFound'])
             );
         }
@@ -217,13 +182,11 @@ class FiltersCreateCommand extends BaseGmailCommand
             $addLabelIds[] = 'TRASH';
         }
 
-        $action = array_filter([
+        return array_filter([
             'addLabelIds' => $this->dedupe($addLabelIds),
             'removeLabelIds' => $this->dedupe($removeLabelIds),
             'forward' => $this->option('forward') ?: null,
         ]);
-
-        return $action;
     }
 
     private function dedupe(array $labelIds): array
