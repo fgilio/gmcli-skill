@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\GmcliEnv;
+use App\Services\GmcliPaths;
 use App\Services\OAuthService;
 
 describe('code extraction from HTTP request', function () {
@@ -113,8 +115,8 @@ describe('accounts remove semantics', function () {
     });
 
     it('removes account credentials on remove command', function () {
-        $paths = new App\Services\GmcliPaths($this->tempDir);
-        $env = new App\Services\GmcliEnv($paths);
+        $paths = new GmcliPaths($this->tempDir);
+        $env = new GmcliEnv($paths);
 
         $env->set('GOOGLE_CLIENT_ID', 'test_client');
         $env->set('GOOGLE_CLIENT_SECRET', 'test_secret');
@@ -139,8 +141,8 @@ describe('accounts remove semantics', function () {
     });
 
     it('keeps credentials after removing account', function () {
-        $paths = new App\Services\GmcliPaths($this->tempDir);
-        $env = new App\Services\GmcliEnv($paths);
+        $paths = new GmcliPaths($this->tempDir);
+        $env = new GmcliEnv($paths);
 
         $env->set('GOOGLE_CLIENT_ID', 'keep_this');
         $env->set('GOOGLE_CLIENT_SECRET', 'keep_secret');
