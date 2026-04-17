@@ -1,0 +1,79 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      php-version:
+        description: 'PHP version'
+        required: true
+        default: '8.5'
+        type: choice
+        options:
+          - '8.5'
+          - '8.4'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            spc-arch: linux-x86_64
+            output-suffix: linux-x86_64
+          - os: macos-latest
+            spc-arch: macos-aarch64
+            output-suffix: darwin-arm64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.output-suffix }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          tools: composer
+
+      - name: Install Composer dependencies
+        run: cd src && composer install --no-dev --no-progress --optimize-autoloader
+
+      - name: Download spc binary
+        run: |
+          curl -fsSL -o spc "https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-${{ matrix.spc-arch }}"
+          chmod +x spc
+
+      - name: Download PHP source and dependencies
+        run: |
+          ./spc download \
+            --with-php=${{ inputs.php-version }} \
+            --for-extensions=ctype,curl,dom,filter,iconv,mbstring,openssl,phar,simplexml,tokenizer,xml,xmlwriter,zlib
+
+      - name: Build micro.sfx
+        run: |
+          ./spc build \
+            ctype,curl,dom,filter,iconv,mbstring,openssl,phar,simplexml,tokenizer,xml,xmlwriter,zlib \
+            --build-micro
+
+      - name: Install Box (PHAR compiler)
+        run: |
+          curl -fsSL -o box.phar https://github.com/box-project/box/releases/latest/download/box.phar
+          chmod +x box.phar
+
+      - name: Build PHAR
+        working-directory: src
+        run: php ../box.phar compile --config=box.json
+
+      - name: Combine micro.sfx + PHAR into standalone binary
+        run: |
+          cat buildroot/bin/micro.sfx src/builds/gmcli.phar > gmcli
+          chmod +x gmcli
+
+      - name: Verify binary
+        run: ./gmcli --version
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmcli-${{ matrix.output-suffix }}
+          path: gmcli
