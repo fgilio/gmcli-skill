@@ -37,18 +37,21 @@ src/
 ## Building
 
 First-time setup (builds PHP + micro.sfx):
+
 ```bash
 php-cli-skill-runtime-setup --doctor
 php-cli-skill-runtime-build
 ```
 
 Build and install to skill root:
+
 ```bash
 ./gmcli build              # builds + copies to ../skill/gmcli
 ./gmcli build --no-install # only builds to builds/gmcli
 ```
 
 The build:
+
 1. Creates `builds/gmcli.phar` using Box
 2. Combines with `micro.sfx` for standalone binary
 3. Copies to `../gmcli` (skill root)
@@ -56,10 +59,12 @@ The build:
 ## OAuth Scope
 
 Uses:
+
 - `https://www.googleapis.com/auth/gmail.modify`
 - `https://www.googleapis.com/auth/gmail.settings.basic`
 
 Capabilities:
+
 - Read, compose, send, and modify email
 - Manage labels
 - Create, list, and delete Gmail filters
@@ -74,6 +79,7 @@ Existing authenticated accounts must be removed and added again once after upgra
 ```
 
 Test coverage includes:
+
 - OAuth code extraction and URL building
 - MIME parsing and base64url encoding
 - Label name resolution

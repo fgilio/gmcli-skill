@@ -7,6 +7,7 @@
 ```
 
 Or manually:
+
 ```bash
 ln -sf $AGENT_HOME/skills/gmcli/gmcli ~/.local/bin/gmcli
 ```

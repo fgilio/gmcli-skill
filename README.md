@@ -62,11 +62,11 @@ $AGENT_HOME/skills/gmcli/gmcli accounts:add you@gmail.com
 
 ## Data
 
-| Path | Purpose |
-|------|---------|
+| Path                    | Purpose                             |
+| ----------------------- | ----------------------------------- |
 | `.env` (next to binary) | Shared OAuth credentials (optional) |
-| `~/.gmcli/.env` | Personal tokens and email |
-| `~/.gmcli/attachments/` | Downloaded attachments |
+| `~/.gmcli/.env`         | Personal tokens and email           |
+| `~/.gmcli/attachments/` | Downloaded attachments              |
 
 ## Development
 

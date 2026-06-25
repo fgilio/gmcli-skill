@@ -10,13 +10,12 @@ disable-model-invocation: false
 
 ## Execution
 
-`gmcli` is a self-contained binary available on PATH.
-Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
+`gmcli` is a self-contained binary available on PATH. Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
 
 ## Quick Reference
 
 | Command | Purpose |
-|---------|---------|
+| --- | --- |
 | `gmcli accounts:credentials <file.json>` | Set OAuth credentials |
 | `gmcli accounts:list` | List configured accounts |
 | `gmcli accounts:add <email>` | Add Gmail account via OAuth |
@@ -39,7 +38,7 @@ Run it directly - never prefix with `bun`, `node`, `php`, or any runtime.
 ## Full Options Reference
 
 | Command | Options |
-|---------|---------|
+| --- | --- |
 | `gmail:search` | `--limit=20` `--page` `--json` |
 | `gmail:thread` | `--thread-id` `--download` `--json` |
 | `gmail:send` | `--to` `--subject` `--body` `--cc` `--bcc` `--reply-to` `--attach` `--json` |
@@ -60,12 +59,14 @@ Account is optional when configured. Use `-a <email>` to override.
 ## Setup
 
 Personal use:
+
 ```bash
 gmcli accounts:credentials ~/path/to/client_secret.json
 gmcli accounts:add you@gmail.com
 ```
 
 Team use (credentials in `.env` next to binary):
+
 ```bash
 gmcli accounts:add you@gmail.com
 ```
@@ -129,13 +130,14 @@ gmcli gmail:search "is:unread" --json
 ```
 
 JSON structure:
+
 - Success: `{"data": [...]}`
 - Error: `{"error": "message"}` (to stderr)
 
 ## Data Storage
 
-| Path | Purpose |
-|------|---------|
-| `.env` (next to binary) | Shared OAuth credentials (optional) |
-| `~/.gmcli/.env` | Personal tokens and email (0600 perms) |
-| `~/.gmcli/attachments/` | Downloaded attachments |
+| Path                    | Purpose                                |
+| ----------------------- | -------------------------------------- |
+| `.env` (next to binary) | Shared OAuth credentials (optional)    |
+| `~/.gmcli/.env`         | Personal tokens and email (0600 perms) |
+| `~/.gmcli/attachments/` | Downloaded attachments                 |
