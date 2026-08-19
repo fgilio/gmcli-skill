@@ -18,8 +18,9 @@ src/
 │   ├── Commands/           # CLI commands
 │   │   ├── DefaultCommand.php   # Main dispatcher
 │   │   ├── BuildCommand.php     # Build binary
-│   │   ├── Accounts/            # accounts:credentials|list|add|default|remove
+│   │   ├── Accounts/            # accounts:credentials|list|add|default|remove|doctor
 │   │   └── Gmail/               # gmail:search|thread|labels|filters|drafts|send|url
+│   ├── Exceptions/         # GmailAuthException, GmailConnectionException
 │   └── Services/           # Core services
 │       ├── GmcliPaths.php       # ~/.gmcli/ directory management
 │       ├── GmcliEnv.php         # .env file handling
@@ -71,6 +72,8 @@ Capabilities:
 - **Cannot** permanently delete messages (only trash)
 
 Accounts authenticated before the settings scope landed grant it by running `accounts:add` again for the same address, which re-authenticates in place.
+
+`accounts:doctor` calls `users.getProfile` once per account and grades the outcome: `ok`, `auth_failed` (`GmailAuthException`, a token Google rejects or a 401/403 answer), `mismatch` (the token authenticates another mailbox), `unreachable` (`GmailConnectionException`), or `error`. It exits non-zero when any account is not `ok`.
 
 ## Account Storage
 

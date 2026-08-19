@@ -65,6 +65,12 @@ $AGENT_HOME/skills/gmcli/gmcli gmail:search "is:unread" -a you@company.com
 
 `-a` accepts an account's primary address or one of its aliases.
 
+Check every account in one call, in text or with `--json`. It reports the mailbox each token authenticates, the default account, the config file permissions, and exits non-zero when an account needs a fix:
+
+```bash
+$AGENT_HOME/skills/gmcli/gmcli accounts:doctor
+```
+
 Adding an address that is already configured re-authenticates it and replaces its refresh token. Run it again to grant a new scope, such as the Gmail settings scope that filter create and delete need:
 
 ```bash

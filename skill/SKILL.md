@@ -21,6 +21,7 @@ disable-model-invocation: false
 | `gmcli accounts:add <email>` | Add Gmail account via OAuth |
 | `gmcli accounts:default <email>` | Choose the default account |
 | `gmcli accounts:remove <email>` | Remove account |
+| `gmcli accounts:doctor` | Check that every account still authenticates |
 | `gmcli gmail:search "<query>"` | Search threads |
 | `gmcli gmail:thread --thread-id=<id>` | View thread messages |
 | `gmcli gmail:labels:list` | List all labels |
@@ -40,6 +41,7 @@ disable-model-invocation: false
 
 | Command | Options |
 | --- | --- |
+| `accounts:doctor` | `--json` |
 | `gmail:search` | `--limit=20` `--page` `--json` |
 | `gmail:thread` | `--thread-id` `--download` `--json` |
 | `gmail:send` | `--to` `--subject` `--body` `--cc` `--bcc` `--reply-to` `--attach` `--json` |
@@ -85,6 +87,19 @@ gmcli gmail:search "is:unread" -a you@gmail.com
 ```
 
 Adding an address that is already configured re-authenticates it and replaces its refresh token, so a scope upgrade or an expired token needs no removal first.
+
+## Health Check
+
+When a command fails with an auth error, or before trusting a long run, check every account at once:
+
+```bash
+gmcli accounts:doctor
+gmcli accounts:doctor --json
+```
+
+Each account gets one Gmail profile call. The report names the account the token really authenticates, the default account, the config file and its permissions, and prints the `accounts:add` command that repairs any account Google rejects. It exits non-zero when an account needs attention, so it works as a gate in a script.
+
+Account statuses in JSON: `ok`, `auth_failed` (re-run `accounts:add`), `mismatch` (the token belongs to another mailbox), `unreachable` (network), `error` (anything else).
 
 ## Usage Examples
 

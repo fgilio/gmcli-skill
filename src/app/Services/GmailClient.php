@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\GmailAuthException;
+use App\Exceptions\GmailConnectionException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use RuntimeException;
@@ -110,6 +112,10 @@ class GmailClient
             $response = $this->httpRequest($method, $url, $data);
         }
 
+        if (in_array($response['status'], [401, 403], true)) {
+            throw new GmailAuthException($this->redactSecrets($this->extractError($response)));
+        }
+
         if ($response['status'] >= 400) {
             $error = $this->extractError($response);
             throw new RuntimeException($this->redactSecrets($error));
@@ -145,13 +151,20 @@ class GmailClient
                 ->timeout(30)
                 ->post(self::TOKEN_URL, $data);
         } catch (ConnectionException $e) {
-            throw new RuntimeException("HTTP request failed: {$e->getMessage()}");
+            throw new GmailConnectionException("HTTP request failed: {$e->getMessage()}");
         }
 
         if (! $response->successful()) {
             $decoded = $response->json() ?? [];
             $error = $decoded['error_description'] ?? $decoded['error'] ?? 'Token refresh failed';
-            throw new RuntimeException($this->redactSecrets($error));
+            $error = $this->redactSecrets(is_string($error) ? $error : 'Token refresh failed');
+
+            // Google answers a refresh token it no longer accepts with 400 invalid_grant.
+            if ($response->status() === 400 || $response->status() === 401) {
+                throw new GmailAuthException($error);
+            }
+
+            throw new RuntimeException($error);
         }
 
         $decoded = $response->json();
@@ -180,7 +193,7 @@ class GmailClient
 
             $response = $request->send($method, $url, $options);
         } catch (ConnectionException $e) {
-            throw new RuntimeException("HTTP request failed: {$e->getMessage()}");
+            throw new GmailConnectionException("HTTP request failed: {$e->getMessage()}");
         }
 
         return [

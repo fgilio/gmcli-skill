@@ -24,6 +24,12 @@ it('shows help default account command', function () {
         ->assertSuccessful();
 });
 
+it('shows help doctor command', function () {
+    $this->artisan('list')
+        ->expectsOutputToContain('accounts:doctor')
+        ->assertSuccessful();
+});
+
 it('shows help gmail commands', function () {
     $this->artisan('list')
         ->expectsOutputToContain('gmail:search')
