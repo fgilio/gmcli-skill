@@ -2,6 +2,7 @@
 
 namespace App\Commands\Gmail;
 
+use App\Exceptions\GmailAuthException;
 use App\Services\GmailClient;
 use App\Services\GmailClientFactory;
 use App\Services\GmailLogger;
@@ -111,7 +112,7 @@ abstract class BaseGmailCommand extends Command
     }
 
     /**
-     * Rewrite Gmail API scope errors into an actionable re-consent hint.
+     * Rewrite Gmail credential errors into an actionable fix.
      *
      * @return array{message: string, meta: array<string, mixed>}|null
      */
@@ -121,23 +122,55 @@ abstract class BaseGmailCommand extends Command
             return null;
         }
 
-        $normalized = strtolower($e->getMessage());
+        if ($this->isScopeError($e->getMessage())) {
+            $account = $this->account ?? '<email>';
 
-        $isScopeError = str_contains($normalized, 'insufficient authentication scopes')
-            || str_contains($normalized, 'insufficientpermissions')
-            || str_contains($normalized, 'insufficient permissions');
-
-        if (! $isScopeError) {
-            return null;
+            return $this->details([
+                'Filter management requires renewed Gmail consent.',
+                'Run: gmcli accounts:remove '.$account,
+                'Then: gmcli accounts:add '.$account,
+            ]);
         }
 
-        $account = $this->account ?? '<email>';
+        if ($e instanceof GmailAuthException) {
+            $account = $this->account ?? '<email>';
 
+            return $this->details([
+                "Gmail rejected the credentials for {$account}.",
+                'Reason: '.$this->oneLine($e->getMessage()),
+                "Re-authenticate: gmcli accounts:add {$account}",
+                'Check every account: gmcli accounts:doctor',
+            ]);
+        }
+
+        return null;
+    }
+
+    private function isScopeError(string $message): bool
+    {
+        $normalized = strtolower($message);
+
+        return str_contains($normalized, 'insufficient authentication scopes')
+            || str_contains($normalized, 'insufficientpermissions')
+            || str_contains($normalized, 'insufficient permissions');
+    }
+
+    /**
+     * JSON consumers get the whole failure on one line, humans get one hint per line.
+     *
+     * @param  list<string>  $lines
+     * @return array{message: string, meta: array<string, mixed>}
+     */
+    private function details(array $lines): array
+    {
         return [
-            'message' => "Filter management requires renewed Gmail consent.\n"
-                .'Run: gmcli accounts:remove '.$account."\n"
-                .'Then: gmcli accounts:add '.$account,
+            'message' => implode($this->wantsJson() ? ' ' : "\n", $lines),
             'meta' => [],
         ];
+    }
+
+    private function oneLine(string $message): string
+    {
+        return trim((string) preg_replace('/\s+/', ' ', $message));
     }
 }

@@ -90,7 +90,9 @@ Adding an address that is already configured re-authenticates it and replaces it
 
 ## Health Check
 
-When a command fails with an auth error, or before trusting a long run, check every account at once:
+A command that runs into a token Google rejects names the account, the reason Google gave, and the `accounts:add` call that repairs it, then exits 1 (in `--json`, the same information arrives as a one-line `{"error": "..."}` on stderr).
+
+Before trusting a long run, or to see the state of every address at once, check them all:
 
 ```bash
 gmcli accounts:doctor
