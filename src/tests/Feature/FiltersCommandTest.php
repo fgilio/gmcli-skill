@@ -238,9 +238,11 @@ it('shows actionable reauth guidance for insufficient scope on create', function
         '--from' => 'alert@ohdear.app',
         '--skip-inbox' => true,
     ])
-        ->expectsOutputToContain('Filter management requires renewed Gmail consent.')
-        ->expectsOutputToContain('Run: gmcli accounts:remove test@gmail.com')
-        ->expectsOutputToContain('Then: gmcli accounts:add test@gmail.com')
+        ->expectsOutputToContain(
+            "Filter management requires renewed Gmail consent.\n"
+            ."Run: gmcli accounts:remove test@gmail.com\n"
+            .'Then: gmcli accounts:add test@gmail.com'
+        )
         ->assertFailed();
 });
 

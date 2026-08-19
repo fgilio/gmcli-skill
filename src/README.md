@@ -18,7 +18,7 @@ src/
 │   ├── Commands/           # CLI commands
 │   │   ├── DefaultCommand.php   # Main dispatcher
 │   │   ├── BuildCommand.php     # Build binary
-│   │   ├── Accounts/            # accounts:credentials|list|add|remove
+│   │   ├── Accounts/            # accounts:credentials|list|add|default|remove
 │   │   └── Gmail/               # gmail:search|thread|labels|filters|drafts|send|url
 │   └── Services/           # Core services
 │       ├── GmcliPaths.php       # ~/.gmcli/ directory management
@@ -70,7 +70,20 @@ Capabilities:
 - Create, list, and delete Gmail filters
 - **Cannot** permanently delete messages (only trash)
 
-Existing authenticated accounts must be removed and added again once after upgrading so the new Gmail settings scope is granted.
+Accounts authenticated before the settings scope landed grant it by running `accounts:add` again for the same address, which re-authenticates in place.
+
+## Account Storage
+
+`~/.gmcli/.env` holds one key group per account plus the default pointer:
+
+```
+GMAIL_DEFAULT_ACCOUNT=you@gmail.com
+GMAIL_ACCOUNT_YOU_GMAIL_COM_ADDRESS=you@gmail.com
+GMAIL_ACCOUNT_YOU_GMAIL_COM_REFRESH_TOKEN=...
+GMAIL_ACCOUNT_YOU_GMAIL_COM_ALIASES=alias@gmail.com,other@gmail.com
+```
+
+The slug comes from the address, so the keys of an account stay put across saves. Files still holding the single-account `GMAIL_ADDRESS` and `GMAIL_REFRESH_TOKEN` keys read as one account and get rewritten into the keyed form on the next save. Account keys never go in the shared `.env` next to the binary, which carries the OAuth credentials only.
 
 ## Testing
 
@@ -81,6 +94,7 @@ Existing authenticated accounts must be removed and added again once after upgra
 Test coverage includes:
 
 - OAuth code extraction and URL building
+- Multi-account storage, default selection, and migration from the single-account keys
 - MIME parsing and base64url encoding
 - Label name resolution
 - Filter create/list/delete command flows

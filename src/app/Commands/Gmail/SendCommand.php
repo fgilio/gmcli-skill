@@ -41,7 +41,7 @@ class SendCommand extends BaseGmailCommand
         $attachments = $this->option('attach') ?: [];
 
         $builder = new MessageBuilder;
-        $builder->from($this->env->getEmail())
+        $builder->from($this->account)
             ->to($this->parseEmails($to))
             ->subject($subject)
             ->body($body);

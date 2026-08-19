@@ -26,12 +26,10 @@ class UrlCommand extends BaseGmailCommand
             return $failure;
         }
 
-        $configuredEmail = $this->env->getEmail();
-
         $results = array_map(
             fn ($threadId) => [
                 'threadId' => $threadId,
-                'url' => $this->buildGmailUrl($threadId, $configuredEmail),
+                'url' => $this->buildGmailUrl($threadId, $this->account),
             ],
             $threadIds
         );

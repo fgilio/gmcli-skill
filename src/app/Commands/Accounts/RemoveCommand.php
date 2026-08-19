@@ -13,7 +13,7 @@ class RemoveCommand extends Command
 {
     use AgentCommand;
 
-    protected $signature = 'accounts:remove {email? : Email address to remove}';
+    protected $signature = 'accounts:remove {email? : Email address or alias of the account to remove}';
 
     protected $description = 'Remove a Gmail account';
 
@@ -29,22 +29,29 @@ class RemoveCommand extends Command
             return $this->failWith('No account configured.');
         }
 
-        $existingEmail = $env->getEmail();
+        $configured = implode(', ', $env->accountEmails());
+        $removed = $env->removeAccount($email);
 
-        if (! $env->matchesEmail($email)) {
-            return $this->failWith("Account not found: {$email}. Configured account: {$existingEmail}");
+        if (! $removed) {
+            return $this->failWith("Account not found: {$email}. Configured accounts: {$configured}");
         }
 
-        $env->remove('GMAIL_ADDRESS');
-        $env->remove('GMAIL_REFRESH_TOKEN');
-        $env->remove('GMAIL_ADDRESS_ALIASES');
         $env->save();
 
+        $newDefault = $env->getEmail();
+
         if ($this->wantsJson()) {
-            return $this->outputJson(['email' => $existingEmail]);
+            return $this->outputJson([
+                'email' => $removed['email'],
+                'default' => $newDefault,
+            ]);
         }
 
-        $this->info("Account removed: {$existingEmail}");
+        $this->info("Account removed: {$removed['email']}");
+
+        if ($removed['default'] && $newDefault) {
+            $this->line("Default account is now: {$newDefault}");
+        }
 
         return self::SUCCESS;
     }

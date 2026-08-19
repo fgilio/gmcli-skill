@@ -51,12 +51,23 @@ $AGENT_HOME/skills/gmcli/gmcli gmail:filters:create --from "alert@ohdear.app" --
 $AGENT_HOME/skills/gmcli/gmcli gmail:send --to "to@example.com" --subject "Hi" --body "Hello"
 ```
 
-Account is optional once configured. Use `$AGENT_HOME/skills/gmcli/gmcli -a you@gmail.com <command>` to override.
+## Multiple Accounts
 
-If you upgrade to a version with filter create/delete support and already authenticated before, remove and add the account again once to grant the new Gmail settings scope:
+Add as many accounts as you need. The first one added becomes the default, and every command runs against the default unless you pass `-a`:
 
 ```bash
-$AGENT_HOME/skills/gmcli/gmcli accounts:remove you@gmail.com
+$AGENT_HOME/skills/gmcli/gmcli accounts:add you@gmail.com
+$AGENT_HOME/skills/gmcli/gmcli accounts:add you@company.com --default
+$AGENT_HOME/skills/gmcli/gmcli accounts:list
+$AGENT_HOME/skills/gmcli/gmcli accounts:default you@gmail.com
+$AGENT_HOME/skills/gmcli/gmcli gmail:search "is:unread" -a you@company.com
+```
+
+`-a` accepts an account's primary address or one of its aliases.
+
+Adding an address that is already configured re-authenticates it and replaces its refresh token. Run it again to grant a new scope, such as the Gmail settings scope that filter create and delete need:
+
+```bash
 $AGENT_HOME/skills/gmcli/gmcli accounts:add you@gmail.com
 ```
 
@@ -65,7 +76,7 @@ $AGENT_HOME/skills/gmcli/gmcli accounts:add you@gmail.com
 | Path                    | Purpose                             |
 | ----------------------- | ----------------------------------- |
 | `.env` (next to binary) | Shared OAuth credentials (optional) |
-| `~/.gmcli/.env`         | Personal tokens and email           |
+| `~/.gmcli/.env`         | Per-account tokens and addresses    |
 | `~/.gmcli/attachments/` | Downloaded attachments              |
 
 ## Development

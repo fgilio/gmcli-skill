@@ -19,6 +19,7 @@ disable-model-invocation: false
 | `gmcli accounts:credentials <file.json>` | Set OAuth credentials |
 | `gmcli accounts:list` | List configured accounts |
 | `gmcli accounts:add <email>` | Add Gmail account via OAuth |
+| `gmcli accounts:default <email>` | Choose the default account |
 | `gmcli accounts:remove <email>` | Remove account |
 | `gmcli gmail:search "<query>"` | Search threads |
 | `gmcli gmail:thread --thread-id=<id>` | View thread messages |
@@ -54,7 +55,7 @@ disable-model-invocation: false
 | `gmail:labels:list` | `--json` |
 | `gmail:drafts:list` | `--json` |
 
-Account is optional when configured. Use `-a <email>` to override.
+Every gmail command runs against the default account. Use `-a <email>` to pick another configured account. The address can be an account's primary address or one of its aliases.
 
 ## Setup
 
@@ -70,6 +71,20 @@ Team use (credentials in `.env` next to binary):
 ```bash
 gmcli accounts:add you@gmail.com
 ```
+
+## Multiple Accounts
+
+Add as many accounts as you need. The first one added becomes the default:
+
+```bash
+gmcli accounts:add you@gmail.com
+gmcli accounts:add you@company.com          # add --default to make it the default
+gmcli accounts:list                          # the default is marked "(default)"
+gmcli accounts:default you@company.com       # switch the default later
+gmcli gmail:search "is:unread" -a you@gmail.com
+```
+
+Adding an address that is already configured re-authenticates it and replaces its refresh token, so a scope upgrade or an expired token needs no removal first.
 
 ## Usage Examples
 
@@ -113,7 +128,6 @@ gmcli gmail:filters:delete --filter-id=filter123
 If an existing account was authenticated before filter support landed, reconnect once to grant Gmail settings access:
 
 ```bash
-gmcli accounts:remove you@gmail.com
 gmcli accounts:add you@gmail.com
 ```
 
@@ -136,8 +150,8 @@ JSON structure:
 
 ## Data Storage
 
-| Path                    | Purpose                                |
-| ----------------------- | -------------------------------------- |
-| `.env` (next to binary) | Shared OAuth credentials (optional)    |
-| `~/.gmcli/.env`         | Personal tokens and email (0600 perms) |
-| `~/.gmcli/attachments/` | Downloaded attachments                 |
+| Path                    | Purpose                                       |
+| ----------------------- | --------------------------------------------- |
+| `.env` (next to binary) | Shared OAuth credentials (optional)           |
+| `~/.gmcli/.env`         | Per-account tokens and addresses (0600 perms) |
+| `~/.gmcli/attachments/` | Downloaded attachments                        |

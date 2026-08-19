@@ -36,7 +36,7 @@ abstract class BaseGmailCommand extends Command
     protected function configure(): void
     {
         parent::configure();
-        $this->addOption('account', 'a', InputOption::VALUE_REQUIRED, 'Account email (uses default if not specified)');
+        $this->addOption('account', 'a', InputOption::VALUE_REQUIRED, 'Account email or alias (uses the default account if not specified)');
     }
 
     /**
@@ -73,8 +73,6 @@ abstract class BaseGmailCommand extends Command
             );
         }
 
-        $this->account = $email;
-
         if (! $this->env->hasCredentials()) {
             return $this->failWith('No credentials configured. Run: gmcli accounts:credentials <file.json>');
         }
@@ -83,14 +81,23 @@ abstract class BaseGmailCommand extends Command
             return $this->failWith('No account configured. Run: gmcli accounts:add <email>');
         }
 
-        if (! $this->env->matchesEmail($email)) {
-            return $this->failWith("Email does not match configured account: {$this->env->getEmail()}");
+        $account = $this->env->accountFor($email);
+
+        if (! $account) {
+            $configured = implode(', ', $this->env->accountEmails());
+
+            return $this->failWith(
+                "Account not configured: {$email}. Configured accounts: {$configured}. "
+                ."Add it with: gmcli accounts:add {$email}"
+            );
         }
+
+        $this->account = $account['email'];
 
         $this->gmail = app(GmailClientFactory::class)->make(
             $this->env->get('GOOGLE_CLIENT_ID'),
             $this->env->get('GOOGLE_CLIENT_SECRET'),
-            $this->env->get('GMAIL_REFRESH_TOKEN'),
+            $account['refresh_token'],
             $this->logger
         );
 

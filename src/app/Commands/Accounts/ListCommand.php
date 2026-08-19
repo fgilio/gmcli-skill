@@ -30,7 +30,9 @@ class ListCommand extends Command
             return self::SUCCESS;
         }
 
-        if (! $env->hasAccount()) {
+        $accounts = $env->accounts();
+
+        if ($accounts === []) {
             if ($this->wantsJson()) {
                 return $this->outputJson([]);
             }
@@ -41,22 +43,23 @@ class ListCommand extends Command
             return self::SUCCESS;
         }
 
-        $email = $env->getEmail();
-        $aliases = $env->getAliases();
-
         if ($this->wantsJson()) {
-            return $this->outputJson([
-                [
-                    'email' => $email,
-                    'aliases' => $aliases,
+            return $this->outputJson(array_map(
+                fn (array $account): array => [
+                    'email' => $account['email'],
+                    'aliases' => $account['aliases'],
+                    'default' => $account['default'],
                 ],
-            ]);
+                $accounts
+            ));
         }
 
-        $this->line($email);
+        foreach ($accounts as $account) {
+            $this->line($account['email'].($account['default'] ? ' (default)' : ''));
 
-        if (! empty($aliases)) {
-            $this->line('  Aliases: '.implode(', ', $aliases));
+            if ($account['aliases'] !== []) {
+                $this->line('  Aliases: '.implode(', ', $account['aliases']));
+            }
         }
 
         $warning = $env->getPermissionWarning();

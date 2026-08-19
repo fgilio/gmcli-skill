@@ -120,24 +120,17 @@ describe('accounts remove semantics', function () {
 
         $env->set('GOOGLE_CLIENT_ID', 'test_client');
         $env->set('GOOGLE_CLIENT_SECRET', 'test_secret');
-        $env->set('GMAIL_ADDRESS', 'test@gmail.com');
-        $env->set('GMAIL_REFRESH_TOKEN', 'test_token');
-        $env->set('GMAIL_ADDRESS_ALIASES', 'alias@gmail.com');
+        $env->addAccount('test@gmail.com', 'test_token', ['alias@gmail.com']);
         $env->save();
 
-        // Simulate remove
-        $env->remove('GMAIL_ADDRESS');
-        $env->remove('GMAIL_REFRESH_TOKEN');
-        $env->remove('GMAIL_ADDRESS_ALIASES');
+        $env->removeAccount('test@gmail.com');
         $env->save();
-
         $env->reload();
 
         expect($env->hasCredentials())->toBeTrue();
         expect($env->hasAccount())->toBeFalse();
-        expect($env->get('GMAIL_ADDRESS'))->toBeNull();
-        expect($env->get('GMAIL_REFRESH_TOKEN'))->toBeNull();
-        expect($env->get('GMAIL_ADDRESS_ALIASES'))->toBeNull();
+        expect($env->accounts())->toBe([]);
+        expect(file_get_contents($paths->envFile()))->not->toContain('TEST_GMAIL_COM');
     });
 
     it('keeps credentials after removing account', function () {
@@ -146,16 +139,33 @@ describe('accounts remove semantics', function () {
 
         $env->set('GOOGLE_CLIENT_ID', 'keep_this');
         $env->set('GOOGLE_CLIENT_SECRET', 'keep_secret');
-        $env->set('GMAIL_ADDRESS', 'test@gmail.com');
-        $env->set('GMAIL_REFRESH_TOKEN', 'test_token');
+        $env->addAccount('test@gmail.com', 'test_token');
         $env->save();
 
-        $env->remove('GMAIL_ADDRESS');
-        $env->remove('GMAIL_REFRESH_TOKEN');
+        $env->removeAccount('test@gmail.com');
         $env->save();
         $env->reload();
 
         expect($env->get('GOOGLE_CLIENT_ID'))->toBe('keep_this');
         expect($env->get('GOOGLE_CLIENT_SECRET'))->toBe('keep_secret');
+    });
+
+    it('keeps the other account when one of two is removed', function () {
+        $paths = new GmcliPaths($this->tempDir);
+        $env = new GmcliEnv($paths);
+
+        $env->set('GOOGLE_CLIENT_ID', 'test_client');
+        $env->set('GOOGLE_CLIENT_SECRET', 'test_secret');
+        $env->addAccount('first@gmail.com', 'token_1');
+        $env->addAccount('second@work.com', 'token_2');
+        $env->save();
+
+        $env->removeAccount('first@gmail.com');
+        $env->save();
+        $env->reload();
+
+        expect($env->accountEmails())->toBe(['second@work.com']);
+        expect($env->accountFor('second@work.com')['refresh_token'])->toBe('token_2');
+        expect($env->getEmail())->toBe('second@work.com');
     });
 });

@@ -10,6 +10,9 @@ use LaravelZero\Framework\Commands\Command;
 /**
  * Adds a Gmail account via OAuth flow.
  *
+ * Adding an address that is already configured re-authenticates it
+ * and replaces its refresh token.
+ *
  * Supports two modes:
  * - Auto (default): Opens browser, starts local callback server
  * - Manual (--manual): User copies/pastes authorization URL
@@ -20,7 +23,8 @@ class AddCommand extends Command
 
     protected $signature = 'accounts:add
         {email? : Email address to add}
-        {--manual : Use browserless OAuth flow (manual paste)}';
+        {--manual : Use browserless OAuth flow (manual paste)}
+        {--default : Make this account the default}';
 
     protected $description = 'Add a Gmail account via OAuth';
 
@@ -40,12 +44,6 @@ class AddCommand extends Command
             return $this->failWith('No credentials configured. Run: gmcli accounts:credentials <file.json> first.');
         }
 
-        if ($env->hasAccount()) {
-            $existingEmail = $env->getEmail();
-
-            return $this->failWith("Account already configured: {$existingEmail}. Remove it first: gmcli accounts:remove {$existingEmail}");
-        }
-
         $oauth = new OAuthService(
             $env->get('GOOGLE_CLIENT_ID'),
             $env->get('GOOGLE_CLIENT_SECRET'),
@@ -56,11 +54,14 @@ class AddCommand extends Command
             ? $this->runManualFlow($oauth)
             : $this->runAutoFlow($oauth);
 
-        $env->set('GMAIL_ADDRESS', $email);
-        $env->set('GMAIL_REFRESH_TOKEN', $tokens['refresh_token']);
+        $account = $env->addAccount($email, $tokens['refresh_token'], makeDefault: (bool) $this->option('default'));
         $env->save();
 
-        $this->info("Account added: {$email}");
+        $this->info("Account added: {$account['email']}");
+
+        if ($account['default']) {
+            $this->line('This is now the default account.');
+        }
 
         return self::SUCCESS;
     }

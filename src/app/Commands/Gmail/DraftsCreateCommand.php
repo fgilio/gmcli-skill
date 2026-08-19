@@ -42,7 +42,7 @@ class DraftsCreateCommand extends BaseGmailCommand
         $attachments = $this->option('attach') ?: [];
 
         $builder = new MessageBuilder;
-        $builder->from($this->env->getEmail())
+        $builder->from($this->account)
             ->to($this->parseEmails($to))
             ->subject($subject)
             ->body($body);
@@ -119,7 +119,7 @@ class DraftsCreateCommand extends BaseGmailCommand
 
     private function openInBrowser(?string $threadId): void
     {
-        $email = urlencode($this->env->getEmail());
+        $email = urlencode($this->account);
 
         if ($threadId) {
             $hex = strtolower(ltrim($threadId, '0x'));
