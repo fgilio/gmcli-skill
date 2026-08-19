@@ -111,6 +111,27 @@ it('accepts a profile that answers with one of the account aliases', function ()
     $this->artisan('accounts:doctor')->assertSuccessful();
 });
 
+it('reports a rate limited account as an error rather than a dead token', function () {
+    Http::fake([
+        'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'access-token', 'expires_in' => 3600], 200),
+        'https://gmail.googleapis.com/gmail/v1/users/me/profile' => Http::response([
+            'error' => [
+                'message' => 'User-rate limit exceeded.',
+                'errors' => [['message' => 'User-rate limit exceeded.', 'reason' => 'userRateLimitExceeded']],
+            ],
+        ], 403),
+    ]);
+
+    $this->artisan('accounts:doctor', ['--json' => true])
+        ->expectsOutputToContain('"status":"error","profile_email":null,"error":"Gmail API error: User-rate limit exceeded.","fix":null')
+        ->assertFailed();
+
+    $this->artisan('accounts:doctor')
+        ->expectsOutputToContain('FAIL  first@gmail.com (default): Gmail API error: User-rate limit exceeded.')
+        ->doesntExpectOutputToContain('Run: gmcli accounts:add first@gmail.com')
+        ->assertFailed();
+});
+
 it('reports a network failure without offering a re-auth fix', function () {
     Http::fake(fn () => throw new ConnectionException('Could not resolve host'));
 

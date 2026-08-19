@@ -22,6 +22,9 @@ class GmailClient
 
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
+    /** Reasons Gmail gives a 403 when the credentials themselves are the problem. */
+    private const CREDENTIAL_REASONS = ['authError', 'insufficientPermissions'];
+
     private string $clientId;
 
     private string $clientSecret;
@@ -112,13 +115,12 @@ class GmailClient
             $response = $this->httpRequest($method, $url, $data);
         }
 
-        if (in_array($response['status'], [401, 403], true)) {
-            throw new GmailAuthException($this->redactSecrets($this->extractError($response)));
-        }
-
         if ($response['status'] >= 400) {
-            $error = $this->extractError($response);
-            throw new RuntimeException($this->redactSecrets($error));
+            $error = $this->redactSecrets($this->extractError($response));
+
+            throw $this->rejectedCredentials($response)
+                ? new GmailAuthException($error)
+                : new RuntimeException($error);
         }
 
         return $response['body'];
@@ -201,6 +203,23 @@ class GmailClient
             'body' => $response->json() ?? [],
             'raw' => $response->body(),
         ];
+    }
+
+    /**
+     * Tells a dead or unauthorized token from the other refusals
+     * Gmail answers with the same status.
+     */
+    private function rejectedCredentials(array $response): bool
+    {
+        if ($response['status'] === 401) {
+            return true;
+        }
+
+        // 403 also carries rate limits, quota, and a disabled API.
+        $reasons = array_column($response['body']['error']['errors'] ?? [], 'reason');
+
+        return $response['status'] === 403
+            && array_intersect($reasons, self::CREDENTIAL_REASONS) !== [];
     }
 
     /**
