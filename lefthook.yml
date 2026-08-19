@@ -16,7 +16,8 @@ pre-commit:
       glob: "*.php"
       root: "src/"
       stage_fixed: true
-      run: "if command -v herd &>/dev/null; then herd php ./vendor/bin/pint {staged_files}; else ./vendor/bin/pint {staged_files}; fi"
+      # composer.json pins php ^8.5; `herd php` resolves to the machine default (8.4), so prefer php85
+      run: "if command -v php85 &>/dev/null; then php85 ./vendor/bin/pint {staged_files}; elif command -v herd &>/dev/null; then herd php ./vendor/bin/pint {staged_files}; else ./vendor/bin/pint {staged_files}; fi"
 
     agents-symlinks:
       run: |
@@ -39,6 +40,7 @@ pre-push:
   commands:
     phpstan:
       root: "src/"
-      run: "if command -v herd &>/dev/null; then herd php vendor/bin/phpstan analyse --memory-limit=512M; else composer test:types; fi"
+      # composer.json pins php ^8.5; `herd php` resolves to the machine default (8.4), so prefer php85
+      run: "if command -v php85 &>/dev/null; then php85 vendor/bin/phpstan analyse --memory-limit=512M; elif command -v herd &>/dev/null; then herd php vendor/bin/phpstan analyse --memory-limit=512M; else composer test:types; fi"
     php-cli-skill-validate:
       run: "php-cli-skill-validate gmcli"
